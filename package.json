@@ -1,17 +1,51 @@
 {
   "name": "site2paper",
   "version": "0.1.0",
-  "description": "Print any website the way visitors see it: every page, every carousel slide, flowed into a few A4 sheets. One command, no setup.",
-  "keywords": ["pdf", "screenshot", "website", "print", "review", "playwright", "contact-sheet", "design-review"],
+  "description": "Print any website to PDF the way visitors see it: full-page screenshots of every page, every carousel slide, flowed into a few A4 sheets. One command, no setup.",
+  "keywords": [
+    "website-to-pdf",
+    "site-to-pdf",
+    "print-website",
+    "full-page-screenshot",
+    "screenshot",
+    "pdf",
+    "sitemap",
+    "crawler",
+    "cli",
+    "npx",
+    "playwright",
+    "headless-chrome",
+    "design-review",
+    "contact-sheet",
+    "carousel",
+    "print"
+  ],
   "homepage": "https://github.com/piyushagru/site2paper#readme",
-  "repository": { "type": "git", "url": "git+https://github.com/piyushagru/site2paper.git" },
-  "bugs": { "url": "https://github.com/piyushagru/site2paper/issues" },
-  "author": "Piyush Aggarwal",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/piyushagru/site2paper.git"
+  },
+  "bugs": {
+    "url": "https://github.com/piyushagru/site2paper/issues"
+  },
+  "author": {
+    "name": "Piyush Aggarwal",
+    "url": "https://github.com/piyushagru"
+  },
   "license": "MIT",
   "type": "module",
-  "bin": { "site2paper": "bin/site2paper.mjs" },
-  "files": ["bin", "src", "README.md", "LICENSE"],
-  "engines": { "node": ">=20" },
+  "bin": {
+    "site2paper": "bin/site2paper.mjs"
+  },
+  "files": [
+    "bin",
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "preinstall": "node scripts/check-registry.mjs",
     "lint": "eslint",

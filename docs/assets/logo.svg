@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" role="img" aria-label="site2paper logo">
+  <title>site2paper</title>
+  <path d="M22 14 H86 L106 34 V114 H22 Z" fill="#ffffff" stroke="#1f2328" stroke-width="6" stroke-linejoin="round"/>
+  <path d="M86 14 V34 H106" fill="none" stroke="#1f2328" stroke-width="6" stroke-linejoin="round"/>
+  <circle cx="36" cy="28" r="4" fill="#cf222e"/>
+  <circle cx="48" cy="28" r="4" fill="#8c959f"/>
+  <circle cx="60" cy="28" r="4" fill="#8c959f"/>
+  <rect x="34" y="44" width="26" height="22" rx="3" fill="#cf222e"/>
+  <rect x="34" y="72" width="26" height="5" rx="2.5" fill="#8c959f"/>
+  <rect x="34" y="82" width="20" height="5" rx="2.5" fill="#8c959f"/>
+  <rect x="34" y="92" width="24" height="5" rx="2.5" fill="#8c959f"/>
+  <rect x="68" y="44" width="26" height="5" rx="2.5" fill="#8c959f"/>
+  <rect x="68" y="54" width="22" height="5" rx="2.5" fill="#8c959f"/>
+  <rect x="68" y="64" width="26" height="5" rx="2.5" fill="#8c959f"/>
+  <rect x="68" y="76" width="26" height="21" rx="3" fill="#1f2328"/>
+</svg>

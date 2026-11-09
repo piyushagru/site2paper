@@ -1,0 +1,25 @@
+name: Bug report
+description: A page printed wrong, a run failed, or a flag did not work.
+labels: [bug]
+body:
+  - type: input
+    id: command
+    attributes:
+      label: Command
+      placeholder: npx site2paper https://example.com --width 390
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: Attach a sheet from the PDF or the relevant part of report.json.
+    validations:
+      required: true
+  - type: input
+    id: env
+    attributes:
+      label: Environment
+      placeholder: site2paper 0.1.0, Node 24, macOS 15, Chrome 142
+    validations:
+      required: true

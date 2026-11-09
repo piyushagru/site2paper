@@ -1,0 +1,15 @@
+name: Feature request
+description: A site pattern, carousel library or output format site2paper should handle.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What goes wrong today, on which site or library?
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: Proposed behaviour
