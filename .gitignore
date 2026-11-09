@@ -1,0 +1,19 @@
+# dependencies
+/node_modules
+
+# generated output
+/site2paper/
+/ci-out/
+*.pdf
+
+# misc
+.DS_Store
+.idea/
+*.pem
+npm-debug.log*
+
+# env and secrets
+.env*
+!.env.example
+*.key
+*.secret

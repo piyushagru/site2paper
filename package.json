@@ -1,0 +1,40 @@
+{
+  "name": "site2paper",
+  "version": "0.1.0",
+  "description": "Print any website the way visitors see it: every page, every carousel slide, flowed into a few A4 sheets. One command, no setup.",
+  "keywords": ["pdf", "screenshot", "website", "print", "review", "playwright", "contact-sheet", "design-review"],
+  "homepage": "https://github.com/piyushagru/site2paper#readme",
+  "repository": { "type": "git", "url": "git+https://github.com/piyushagru/site2paper.git" },
+  "bugs": { "url": "https://github.com/piyushagru/site2paper/issues" },
+  "author": "Piyush Aggarwal",
+  "license": "MIT",
+  "type": "module",
+  "bin": { "site2paper": "bin/site2paper.mjs" },
+  "files": ["bin", "src", "README.md", "LICENSE"],
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "preinstall": "node scripts/check-registry.mjs",
+    "lint": "eslint",
+    "lint:lockfile": "node scripts/lint-lockfile.mjs",
+    "check": "bash scripts/check-standards.sh",
+    "test": "node --test 'test/**/*.test.mjs'",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "*.{js,mjs}": "eslint"
+  },
+  "dependencies": {
+    "pdf-lib": "1.17.1",
+    "playwright-core": "1.65.0",
+    "sharp": "0.35.3"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "21.2.2",
+    "@commitlint/config-conventional": "21.2.2",
+    "@eslint/js": "10.0.1",
+    "eslint": "10.14.0",
+    "globals": "17.14.0",
+    "husky": "9.1.7",
+    "lint-staged": "17.4.1"
+  }
+}

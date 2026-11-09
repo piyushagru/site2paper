@@ -1,0 +1,16 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "no-em-dash-guard",
+      "description": "PostFileSave guard: fails the save when the em-dash byte sequence E2 80 94 appears under .kiro, scripts, bin, src, test, .github or root markdown.",
+      "trigger": "PostFileSave",
+      "matcher": "\\.(mjs|js|md|json|yml)$",
+      "action": {
+        "type": "command",
+        "command": "em=$(printf '\\xe2\\x80\\x94'); if grep -rlIF -- \"$em\" .kiro scripts bin src test .github *.md 2>/dev/null; then printf 'em-dash U+2014 found; use comma, colon, or parentheses\\n' >&2; exit 1; fi"
+      },
+      "timeout": 30
+    }
+  ]
+}
