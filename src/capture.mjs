@@ -2,7 +2,8 @@ import sharp from "sharp";
 import { FOOTER_ONCE_CSS, carouselCss, hideCss, pagePrepScript } from "./rules.mjs";
 
 const ERROR_TEXT = /This page couldn.t load|Application error|Internal Server Error|Unhandled Runtime Error|404 Not Found/;
-const MAX_HEIGHT_PX = 40_000;
+// Chromium refuses screenshots over 32767 device pixels on a side (Playwright enforces it off macOS).
+export const heightCap = (scale) => Math.floor(32_767 / scale);
 
 /** Opens a page once and returns its same-origin link hrefs (used by the crawler). */
 export async function linksOn(browser, url, { width }) {
@@ -19,6 +20,7 @@ export async function linksOn(browser, url, { width }) {
 
 /** Full-page screenshot of one URL as visitors see it, with blank-row map for cut placement. */
 export async function capture(browser, url, { width, keepFooter, hide = [], scale = 1 }) {
+  const maxH = heightCap(scale);
   const page = await browser.newPage({ viewport: { width, height: 900 }, deviceScaleFactor: scale, reducedMotion: "reduce" });
   try {
     const res = await page.goto(url, { waitUntil: "domcontentloaded", timeout: 60_000 });
@@ -31,27 +33,31 @@ export async function capture(browser, url, { width, keepFooter, hide = [], scal
     }
     await page.addStyleTag({ content: hideCss(hide) + carouselCss() + (keepFooter ? "" : FOOTER_ONCE_CSS) });
     await page.evaluate(pagePrepScript());
-    // Walk the page so lazy images and IntersectionObserver content load like a real scroll.
-    await page.evaluate(async (maxH) => {
-      const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-      const total = Math.min(Math.max(document.body.scrollHeight, document.documentElement.scrollHeight), maxH);
-      for (let y = 0; y < total; y += innerHeight / 2) { scrollTo(0, y); await sleep(100); }
-      const pending = [...document.images].filter((i) => !i.complete);
-      await Promise.race([Promise.all(pending.map((i) => new Promise((r) => { i.onload = i.onerror = r; }))), sleep(8000)]);
-      scrollTo(0, 0);
-      await sleep(800);
-    }, MAX_HEIGHT_PX);
+    await page.evaluate(scrollWalk, maxH);
     const height = await page.evaluate(() => Math.max(document.body.scrollHeight, document.documentElement.scrollHeight));
+    const truncated = height > maxH;
     const png = await page.screenshot({
-      fullPage: height <= MAX_HEIGHT_PX,
-      clip: height > MAX_HEIGHT_PX ? { x: 0, y: 0, width, height: MAX_HEIGHT_PX } : undefined,
+      fullPage: !truncated,
+      clip: truncated ? { x: 0, y: 0, width, height: maxH } : undefined,
       type: "png",
       animations: "disabled",
     });
-    return await describe(Buffer.from(png));
+    return { ...(await describe(Buffer.from(png))), truncated, maxHeight: maxH };
   } finally {
     await page.close().catch(() => {});
   }
+}
+
+/** Runs inside the page (Playwright serialises its source), so it may only touch its argument and browser globals. */
+export async function scrollWalk(maxH) {
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const docHeight = () => Math.max(document.body.scrollHeight, document.documentElement.scrollHeight);
+  // Lazy feeds grow while scrolling, so the height is re-read every step and only the cap ends the walk.
+  for (let y = 0; y < Math.min(docHeight(), maxH); y += innerHeight / 2) { scrollTo(0, y); await sleep(100); }
+  const pending = [...document.images].filter((i) => !i.complete);
+  if (pending.length) await Promise.race([Promise.all(pending.map((i) => new Promise((r) => { i.onload = i.onerror = r; }))), sleep(8000)]);
+  scrollTo(0, 0);
+  await sleep(800);
 }
 
 /** Chrome's own Print-to-PDF of one URL: the traditional baseline for `--format native` and `compare`. */

@@ -20,4 +20,12 @@ else
   bad 'lockfile resolved from registry.npmjs.org' 'rm -rf node_modules package-lock.json && npm install --registry=https://registry.npmjs.org'
 fi
 
+PACK_BUDGET="${PACK_BUDGET:-20000}"
+packed=$(npm pack --dry-run --json 2>/dev/null | node -e 'const [p] = JSON.parse(require("fs").readFileSync(0, "utf8")); console.log(p.size)' 2>/dev/null || echo 0)
+if [ "$packed" -gt 0 ] && [ "$packed" -le "$PACK_BUDGET" ]; then
+  pass "packed size ${packed} B within ${PACK_BUDGET} B"
+else
+  bad "packed size ${packed} B within ${PACK_BUDGET} B" 'check the "files" field in package.json, or raise PACK_BUDGET with a reason in the commit'
+fi
+
 exit "$fail"

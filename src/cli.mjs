@@ -60,7 +60,7 @@ export async function run(argv) {
   const outFile = (suffix) => (o.out.endsWith(".pdf") && suffix === o.format ? resolve(o.out) : resolve(outDir, `${host}-${date}-${width}px-${suffix}.pdf`));
 
   const browser = await launchBrowser({ log });
-  const report = { start, width, format: o.format, pages: [], failed: [], outputs: [] };
+  const report = { start, width, format: o.format, pages: [], failed: [], truncated: [], outputs: [] };
   try {
     let pages;
     if (o.pages) {
@@ -81,7 +81,10 @@ export async function run(argv) {
     const errors = new Map();
     const shoot = async (i) => {
       try {
-        if (wantBook) shots[i] = await capture(browser, pages[i], { width, keepFooter: i === pages.length - 1, hide });
+        if (wantBook) {
+          shots[i] = await capture(browser, pages[i], { width, keepFooter: i === pages.length - 1, hide });
+          if (shots[i].truncated) log(`    cut at ${shots[i].maxHeight}px, rest left out`);
+        }
         if (wantNative) natives[i] = await printNative(browser, pages[i], { paper: o.paper, landscape: !o.portrait });
         errors.delete(i);
       } catch (error) {
@@ -100,9 +103,11 @@ export async function run(argv) {
     const kept = pages.map((_, i) => i).filter((i) => !errors.has(i));
     if (!kept.length) throw new Error("every page failed");
     const stamp = new Date().toLocaleString("en-IN", { hour12: false });
-    const labels = kept.map((i) => `${i + 1}. ${new URL(pages[i]).pathname}${i === kept[0] ? `   ${start}   ${width}px   ${stamp}` : ""}`);
+    const cut = (i) => (shots[i]?.truncated ? ` (cut at ${shots[i].maxHeight}px)` : "");
+    const labels = kept.map((i) => `${i + 1}. ${new URL(pages[i]).pathname}${cut(i)}${i === kept[0] ? `   ${start}   ${width}px   ${stamp}` : ""}`);
     report.pages = kept.map((i) => pages[i]);
     report.failed = [...errors].map(([i, reason]) => ({ url: pages[i], reason }));
+    report.truncated = kept.filter((i) => shots[i]?.truncated).map((i) => ({ url: pages[i], maxHeight: shots[i].maxHeight }));
 
     const save = async (suffix, { bytes, sheets }) => {
       const file = outFile(suffix);

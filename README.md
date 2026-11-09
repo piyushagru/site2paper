@@ -10,7 +10,7 @@ flowed into a few A4 sheets you can mark up with a pen.
 
 [![CI](https://github.com/piyushagru/site2paper/actions/workflows/ci.yml/badge.svg)](https://github.com/piyushagru/site2paper/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Node](https://img.shields.io/badge/node-%3E%3D20-339933?logo=node.js&logoColor=white)](package.json)
+[![Node](https://img.shields.io/badge/node-%3E%3D20.9-339933?logo=node.js&logoColor=white)](package.json)
 [![Playwright](https://img.shields.io/badge/engine-Playwright-2EAD33?logo=playwright&logoColor=white)](https://playwright.dev)
 [![GitHub stars](https://img.shields.io/github/stars/piyushagru/site2paper?style=social)](https://github.com/piyushagru/site2paper)
 
@@ -84,7 +84,7 @@ npx site2paper https://your.site --format compare
 
 ## Quick start
 
-Needs Node 20 or newer.
+Needs Node 20.9 or newer.
 
 ```
 npx site2paper https://your.site
