@@ -12,7 +12,7 @@ flowed into a few A4 sheets you can mark up with a pen.
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%3E%3D20-339933?logo=node.js&logoColor=white)](package.json)
 [![Playwright](https://img.shields.io/badge/engine-Playwright-2EAD33?logo=playwright&logoColor=white)](https://playwright.dev)
-[![GitHub stars](https://img.shields.io/github/stars/piyushagru/site2paper?style=social)](https://github.com/piyushagru/site2paper/stargazers)
+[![GitHub stars](https://img.shields.io/github/stars/piyushagru/site2paper?style=social)](https://github.com/piyushagru/site2paper)
 
 ```
 npx site2paper https://your.site
@@ -189,6 +189,19 @@ Localhost: yes, point it at your dev server. Login: not yet. Pass the public pag
 | [website2pdf](https://github.com/jgazeau/website2pdf) | Sitemap to PDFs, header and footer templates | One PDF per page, optional merge |
 | [shot-scraper](https://shot-scraper.datasette.io/) | Scripted screenshots from YAML | One image per URL |
 | **site2paper** | **Reviewing a site on paper, as visitors see it** | **One small book PDF** |
+
+## Prior art
+
+These open-source projects cover parts of the same problem. site2paper is its own implementation and copies no code from them.
+
+| Project | Author | Licence | What it does |
+|---|---|---|---|
+| [site2pdf](https://github.com/laiso/site2pdf) | laiso | MIT | Prints pages from a site and merges them, aimed at text for LLMs and RAG |
+| [website2pdf](https://github.com/jgazeau/website2pdf) | jgazeau | MIT | Prints one PDF per sitemap page, with optional header and footer templates |
+| [shot-scraper](https://shot-scraper.datasette.io/) | simonw | Apache-2.0 | Takes scripted screenshots from a YAML list of URLs |
+| [web-printer](https://github.com/ourongxing/web-printer) | ourongxing | MIT | Turns documentation sites into one PDF |
+
+Licences were read from each project's GitHub page on 2026-11-09.
 
 ## Contributing
 

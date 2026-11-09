@@ -3,11 +3,10 @@
  * Preinstall guard: refuse to install from anything but the public npm
  * registry.
  *
- * Why: this machine's shell environment sets NPM_CONFIG_REGISTRY to a local
- * registry proxy (e.g. http://localhost:17539). Env vars beat the project
- * .npmrc in npm's config precedence, so an `npm install` run from such a
- * shell would silently rewrite package-lock.json with localhost `resolved`
- * URLs and versionless stub entries, breaking `npm ci` everywhere else.
+ * Why: a shell can set NPM_CONFIG_REGISTRY to a private or local registry
+ * mirror. Env vars beat the project .npmrc in npm's config precedence, so an
+ * `npm install` run from such a shell would silently rewrite package-lock.json
+ * with mirror `resolved` URLs, breaking `npm ci` for everyone else.
  *
  * Detection:
  *   1. Ask `npm config get registry` for the effective value (authoritative

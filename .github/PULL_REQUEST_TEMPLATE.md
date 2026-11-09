@@ -26,7 +26,7 @@
 
 ## Checklist
 
-- [ ] Follows [AGENTS.md](../blob/main/AGENTS.md) (comments, commits, zero-setup rule)
+- [ ] Follows [AGENTS.md](https://github.com/piyushagru/site2paper/blob/main/AGENTS.md) (comments, commits, zero-setup rule)
 - [ ] Commit messages are Conventional Commits, imperative, about 50 chars
 - [ ] No new runtime dependency without a line in the PR saying why
 - [ ] No em-dash anywhere (`npm run check`)
