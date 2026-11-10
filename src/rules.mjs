@@ -32,12 +32,18 @@ export function hideCss(extra = []) {
   const fixed = "[data-print-hide], nextjs-portal, .locale-tooltip-pop, .nudge-card";
   return `
     ${[...COOKIE_BANNERS, fixed, ...extra].join(", ")} { display: none !important; }
-    html, body { overflow: auto !important; position: static !important; }
+    /* body stays overflow: visible: an overflow: auto body becomes the scroll root and unpins every sticky frame. */
+    html { overflow: auto !important; position: static !important; scroll-behavior: auto !important; }
+    body { overflow: visible !important; position: static !important; scroll-behavior: auto !important; }
     *, *::before, *::after { animation-play-state: paused !important; transition: none !important; }
   `;
 }
 
 export const FOOTER_ONCE_CSS = "body > footer, main ~ footer, footer[role='contentinfo'] { display: none !important; }";
+
+export function pageCss({ hide = [], keepFooter = false } = {}) {
+  return hideCss(hide) + carouselCss() + (keepFooter ? "" : FOOTER_ONCE_CSS);
+}
 
 /** Runs in the page: unhides scroll-reveal elements and removes fixed/sticky chrome that would repeat on every slice. */
 export function pagePrepScript() {

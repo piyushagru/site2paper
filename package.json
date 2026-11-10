@@ -1,6 +1,6 @@
 {
   "name": "site2paper",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Print any website to PDF the way visitors see it: full-page screenshots of every page, every carousel slide, flowed into a few A4 sheets. One command, no setup.",
   "keywords": [
     "website-to-pdf",
