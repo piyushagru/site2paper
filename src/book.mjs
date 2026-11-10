@@ -29,8 +29,8 @@ export async function buildBook(shots, labels, sheet, { quality = 82 } = {}) {
       .extract({ left: 0, top: part.srcTop, width, height: part.srcHeight })
       .jpeg({ quality })
       .toBuffer();
-    const h = part.srcHeight * scale;
-    target.drawImage(await pdf.embedJpg(jpg), { x, y: topY - part.y - h, width: colW, height: h });
+    const h = part.srcHeight * scale * part.squeeze;
+    target.drawImage(await pdf.embedJpg(jpg), { x, y: topY - part.y - h, width: colW * part.squeeze, height: h });
   }
   sheets.forEach((s, i) => s.drawText(`${i + 1}/${sheets.length}`, { x: sheet.width - sheet.margin - 20, y: 8, size: 7, font, color: rgb(0.5, 0.5, 0.5) }));
   return { bytes: await pdf.save(), sheets: sheets.length };

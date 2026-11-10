@@ -5,7 +5,8 @@ Conventions for AI coding agents and people working in this repo. Terse by desig
 ## What this is
 
 `npx site2paper <url>` prints a website the way visitors see it: full-page screenshots of every
-page, flowed through columns on A4 sheets, carousels expanded, repeated chrome hidden, footer once.
+page, flowed through columns on A4 sheets, carousels expanded, repeated chrome hidden, footer once,
+scroll-driven stories (pinned frames animated by scroll) printed as a filmstrip of scroll stops.
 The one rule that outranks every other: **a user types one command with one URL and gets a PDF.**
 Any change that adds a required step, flag or config file for the common case is wrong.
 
@@ -19,10 +20,11 @@ Any change that adds a required step, flag or config file for the common case is
 | `src/browser.mjs` | Launches installed Chrome or Edge, downloads Chromium only as a last resort |
 | `src/capture.mjs` | One page in, screenshot plus blank-row map out. Also Chrome's native Print-to-PDF |
 | `src/rules.mjs` | CSS and page script: cookie banners, carousels, fixed widgets, footer-once |
+| `src/story.mjs` | Scroll-story detection script, filmstrip layout and ruler SVG. Pure, unit tested |
 | `src/layout.mjs` | Column flow maths. Pure, fully unit tested |
 | `src/book.mjs` | pdf-lib composition for `book`, `sheet`, and merged `native` |
 | `test/` | `node --test`. Pure modules get tests; browser code is covered by the CI smoke run |
-| `scripts/` | Registry guard, lockfile lint, standards check |
+| `scripts/` | Registry guard, lockfile lint, standards check, new-user smoke (`npm run smoke`). Not shipped: nothing in `preinstall`/`postinstall` may reference it |
 
 Keep pure logic (discover, layout) free of Playwright and sharp so it stays unit testable.
 
@@ -38,7 +40,11 @@ Keep pure logic (discover, layout) free of Playwright and sharp so it stays unit
   about 50 chars, hard cap 72 (commitlint). Types: `feat` `fix` `docs` `style` `refactor` `perf`
   `test` `chore` `ci`.
 - No body unless the change needs real explanation.
-- Do not commit unless asked. When batching, prefer fewer, larger commits grouped by concern.
+- Do not commit unless asked. One concern per commit, and a commit stays readable in one sitting:
+  about 2 to 3 screens of diff, under 100 changed lines. A larger change is split by concern (code,
+  then its test, then docs) before it is committed (owner, 2026-11-11).
+- No customer or third-party site name or URL in any doc, example, test or commit message. Example
+  images show the output, never a brand mark or the URL label.
 
 ## Code
 
@@ -60,6 +66,11 @@ Keep pure logic (discover, layout) free of Playwright and sharp so it stays unit
   exists within 600px.
 - The `native` format is Chrome's own `page.pdf()` with no help from us. It is the honest baseline
   for `compare`; do not "improve" it.
+- A pinned scroll story (a `sticky` or `fixed` frame at least 60 percent of the viewport inside a
+  section at least 1.5 viewports tall, parent not `body`) is never printed as its blank runway. It
+  is printed as a filmstrip of 4 viewport stops with a scroll ruler, in place of the section, with
+  no flag. Stories are captured without reduced motion (sites that honour it remove the story);
+  the static shot is taken with it. `body` keeps `overflow: visible` so sticky frames stay pinned.
 - Output goes under `./site2paper/` unless `--out` says otherwise, with `report.json` beside it.
 
 ## Verification
@@ -73,5 +84,9 @@ Keep pure logic (discover, layout) free of Playwright and sharp so it stays unit
 - No direct pushes to `main`. Branch `<type>/<short-kebab-summary>`, open a PR.
 - Husky runs lint-staged on commit and commitlint on the message. CI re-checks everything, then
   does a smoke run against a public site.
-- Registry guard: `npm install` refuses a non-public registry so the lockfile never gets poisoned.
-  If your shell overrides it, run `npm install --registry=https://registry.npmjs.org`.
+- Registry guard: `npm install` in this repo refuses a non-public registry (the `prepare` hook) so
+  the lockfile never gets poisoned. If your shell overrides it, run
+  `npm install --registry=https://registry.npmjs.org`. It runs for contributors only; a consumer's
+  `npx site2paper` must never run anything from `scripts/`.
+- Before every release: `npm run smoke` (packed tarball as a new user) must pass, then
+  `npm run smoke -- <version>` after publish. See `docs/RELEASING.md`.

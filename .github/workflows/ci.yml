@@ -40,3 +40,6 @@ jobs:
           npx playwright-core install --with-deps chromium
           node bin/site2paper.mjs https://example.com --limit 2 --format compare --out ci-out
           test -f ci-out/report.json
+
+      - name: Smoke (new user, packed tarball)
+        run: npm run smoke

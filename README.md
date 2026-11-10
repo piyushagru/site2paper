@@ -34,22 +34,17 @@ copy editors and clients can spot what is wrong without clicking through 50 tabs
 
 ## Before and after
 
-Same site, same machine, same run: a 48-page catalogue site at 1440px.
+Same site, same machine, same run. Ctrl+P (Chrome Print-to-PDF) on the left, site2paper on the right.
 
-**Before: Ctrl+P (Chrome Print-to-PDF), first 6 of 171 sheets**
+**A 48-page catalogue site at 1440px: 171 sheets become 25.**
 
-![Ctrl+P output: a blank first sheet with a language pop-up, one carousel slide, floating call and chat buttons stamped on every sheet, and mostly empty sheets](docs/assets/before-ctrl-p.jpg)
+![Left, Ctrl+P: a blank first sheet with a language pop-up, one carousel slide, floating call and chat buttons on every sheet. Right, site2paper: the full home page in two columns on one A4 sheet, every hero slide visible, no widgets](examples/catalogue-site/compare.jpg)
 
-**After: site2paper, sheet 1 of 25**
+**A scroll-driven site (three.js, pinned sections) at 1440px: 11 sheets become 1.**
 
-![site2paper output: the full home page in two columns on one A4 sheet, with every hero slide visible and no floating widgets](docs/assets/after-site2paper.jpg)
+![Left, Ctrl+P: ten near-identical sheets showing only the preloader cube. Right, site2paper: one column with three filmstrips of the scroll stories and the FAQ](examples/scroll-story-site/compare.jpg)
 
-<details>
-<summary>Sheet 2: pages flow on, each one kept whole</summary>
-
-![site2paper sheet 2: the about page in the left column and the contact page in the right column](docs/assets/after-site2paper-sheet2.jpg)
-
-</details>
+More sheets and the numbers behind each run: [`examples/`](examples/).
 
 | | Ctrl+P | site2paper |
 |---|---|---|
@@ -76,6 +71,7 @@ npx site2paper https://your.site --format compare
 | **Browser resolution** | Playwright launches the installed Chrome or Edge via `channel`. Headless Chromium is fetched only if neither is found. |
 | **Carousel normalization** | Swiper, Slick, Embla, Keen, Splide, Flickity, Owl, Bootstrap and `aria-roledescription="carousel"` tracks are reflowed into a CSS grid. Nav controls are dropped. |
 | **Overlay suppression** | Consent management platform (CMP) banners are hidden by selector, never clicked. `position: fixed` and `sticky` nodes are removed. The top header is set static. |
+| **Scroll-story filmstrips** | A viewport-sized frame pinned (`sticky` or `fixed`) inside a tall section is a scroll-driven story: three.js scenes, GSAP or Lenis scrollytelling, parallax reveals. Ctrl+P and a plain screenshot print its runway as blank backdrop. site2paper scrolls each story to 4 stops, screenshots the viewport at each, and prints the frames in a row with a scroll ruler (0%, 33%, 67%, 100%) in place of the section. WebGL canvases print as drawn. |
 | **Lazy-load hydration** | Incremental viewport scroll fires `loading="lazy"` and `IntersectionObserver` content. Capture waits for `networkidle`. Animations are disabled. |
 | **Whitespace-aware pagination** | Each shot gets a per-row variance map. Pages flow through N columns. A page that fits a column is never split. Taller pages are cut on the nearest blank row. |
 | **Fault tolerance** | Failed URLs go to a deferred retry queue, 2 rounds by default. Residual failures are written to `report.json`, and the process exits `3`. |
@@ -105,7 +101,7 @@ npx site2paper https://your.site --pages urls.txt         # only these pages
 
 1. **Discover.** `sitemap.xml` first, sitemap indexes followed. Else a breadth-first crawl. Home first, shallow paths before deep. Cap: 50.
 2. **Prepare.** CSS and a small script run in the headless browser only, never on your site.
-3. **Capture.** One full-length PNG per page.
+3. **Capture.** One full-length PNG per page. Pinned scroll stories are captured at 4 scroll stops first and spliced in as a filmstrip.
 4. **Lay out.** Shots are sliced and placed down the columns. The footer is kept on the last page only.
 5. **Report.** Exit code `0` when every page made it, `3` when some were left out.
 
@@ -150,6 +146,15 @@ site2paper makes the top header static, so it shows once, and removes other fixe
 
 Print and screenshots catch whichever slide is showing. site2paper lays the slides of common carousel
 libraries out as a grid, so every slide is on paper.
+</details>
+
+<details>
+<summary><b>My site has scroll animations (three.js, GSAP, parallax) and the PDF shows empty space there.</b></summary>
+
+Those sections pin one viewport-sized frame and animate it as you scroll; the rest of the section is
+runway. Ctrl+P prints the runway. site2paper detects the pinned frame, scrolls the section to 4 stops,
+screenshots each, and prints them as a filmstrip with a scroll ruler in place of the section. One state
+per stop is what you get, not the motion itself.
 </details>
 
 <details>

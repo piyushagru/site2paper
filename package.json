@@ -1,6 +1,6 @@
 {
   "name": "site2paper",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Print any website to PDF the way visitors see it: full-page screenshots of every page, every carousel slide, flowed into a few A4 sheets. One command, no setup.",
   "keywords": [
     "website-to-pdf",
@@ -47,12 +47,12 @@
     "node": ">=20.9.0"
   },
   "scripts": {
-    "preinstall": "node scripts/check-registry.mjs",
     "lint": "eslint",
     "lint:lockfile": "node scripts/lint-lockfile.mjs",
     "check": "bash scripts/check-standards.sh",
     "test": "node --test 'test/**/*.test.mjs'",
-    "prepare": "husky"
+    "prepare": "node scripts/check-registry.mjs && husky",
+    "smoke": "bash scripts/smoke-install.sh"
   },
   "lint-staged": {
     "*.{js,mjs}": "eslint"

@@ -48,3 +48,14 @@ test("carouselCss lays every library's track out as a grid and hides its chrome"
 test("pagePrepScript is valid JavaScript", () => {
   assert.doesNotThrow(() => new Function(pagePrepScript()));
 });
+
+test("pagePrepScript makes native lazy images and iframes eager", () => {
+  const lazy = [{ loading: "lazy" }, { loading: "lazy" }];
+  Object.assign(globalThis, { document: { querySelectorAll: (sel) => (sel.includes("lazy") ? lazy : []) } });
+  try {
+    new Function(pagePrepScript())();
+  } finally {
+    delete globalThis.document;
+  }
+  assert.deepEqual(lazy.map((el) => el.loading), ["eager", "eager"]);
+});

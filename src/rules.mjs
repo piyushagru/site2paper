@@ -48,6 +48,8 @@ export function pageCss({ hide = [], keepFooter = false } = {}) {
 /** Runs in the page: unhides scroll-reveal elements and removes fixed/sticky chrome that would repeat on every slice. */
 export function pagePrepScript() {
   return `(() => {
+    // Native lazy loading waits for the viewport; eager starts every request now so the walk's image wait sees them all.
+    for (const el of document.querySelectorAll('img[loading="lazy"], iframe[loading="lazy"]')) el.loading = "eager";
     for (const el of document.querySelectorAll("*")) {
       const cs = getComputedStyle(el);
       if (cs.position === "fixed" || cs.position === "sticky") {

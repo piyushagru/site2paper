@@ -20,10 +20,13 @@ export function columnScale(imgWidth, sheet) {
  * Flows page screenshots top to bottom through the columns like newspaper text.
  * A page that fits in one column is never split: it moves to the next column instead.
  * A taller page must split; `snap(page, y)` may pull each cut up to a blank row so cards stay whole.
- * Returns placements in pt: { sheet, column, page, srcTop, srcHeight, y, labelY? } with y measured down from the top margin.
+ * A tail shorter than `tailMinPx` (or 5 percent of a column) is not worth a column of its own: the last
+ * piece is drawn a few percent smaller (`squeeze` < 1) so it ends in the current column.
+ * Returns placements in pt: { sheet, column, page, srcTop, srcHeight, y, squeeze, labelY? } with y measured down from the top margin.
  */
-export function flowPages(pageHeights, scale, sheet, { minStartPt = 60, snap = (_page, y) => y } = {}) {
+export function flowPages(pageHeights, scale, sheet, { minStartPt = 60, tailMinPx = 120, snap = (_page, y) => y } = {}) {
   const colH = sheet.height - 2 * sheet.margin;
+  const tailMin = Math.max(tailMinPx, Math.floor(0.05 * colH / scale));
   const out = [];
   let slot = 0;
   let used = 0;
@@ -39,8 +42,13 @@ export function flowPages(pageHeights, scale, sheet, { minStartPt = 60, snap = (
     while (srcTop < heightPx) {
       if (Math.floor((colH - used) / scale) < 1) next();
       const room = Math.floor((colH - used) / scale);
-      let srcHeight = Math.min(heightPx - srcTop, room);
-      if (srcTop + srcHeight < heightPx) {
+      const rest = heightPx - srcTop;
+      let squeeze = 1;
+      let srcHeight = Math.min(rest, room);
+      if (rest > room && rest - room < tailMin) {
+        squeeze = room / rest;
+        srcHeight = rest;
+      } else if (srcTop + srcHeight < heightPx) {
         const cut = snap(page, srcTop + srcHeight);
         if (cut > srcTop && cut <= srcTop + srcHeight) srcHeight = cut - srcTop;
       }
@@ -51,12 +59,13 @@ export function flowPages(pageHeights, scale, sheet, { minStartPt = 60, snap = (
         srcTop,
         srcHeight,
         y: used,
+        squeeze,
         ...(first ? { labelY } : {}),
       });
       first = false;
       srcTop += srcHeight;
       if (srcTop < heightPx) next();
-      else used += srcHeight * scale;
+      else used += srcHeight * scale * squeeze;
     }
   });
   return out;

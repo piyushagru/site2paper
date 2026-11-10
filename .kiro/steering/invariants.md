@@ -12,5 +12,7 @@ Full guidance is `AGENTS.md` at the repo root. These lines are the parts that mu
 - Failed pages are retried after the pass, then reported, never fatal.
 - A page that fits one column is never split.
 - `native` format is untouched Chrome `page.pdf()`.
+- A pinned scroll story prints as a filmstrip of scroll stops, never as blank runway. No flag.
+- `body` stays `overflow: visible`; `overflow: auto` on body unpins every sticky frame.
 - No em-dash anywhere. Conventional Commits, about 50 chars, no body unless needed.
 - Commit only when asked. Never push to `main` directly except by the owner.

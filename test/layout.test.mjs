@@ -26,8 +26,26 @@ test("every pixel of every page is placed once, in order", () => {
 test("no column overflows and each page gets one label", () => {
   const heights = [8000, 900, 1700, 5200, 1500];
   const placed = flowPages(heights, scale, sheet);
-  for (const p of placed) assert.ok(p.y + p.srcHeight * scale <= colH + 0.001);
+  for (const p of placed) assert.ok(p.y + p.srcHeight * scale * p.squeeze <= colH + 0.001);
   assert.equal(placed.filter((p) => p.labelY !== undefined).length, heights.length);
+});
+
+test("a page 30px past the column is squeezed in, not split into a sliver", () => {
+  const heights = [columnPx + 30, 400];
+  const placed = flowPages(heights, scale, sheet);
+  const first = placed.filter((p) => p.page === 0);
+  assert.equal(first.length, 1);
+  assert.equal(first[0].srcHeight, columnPx + 30);
+  assert.ok(first[0].squeeze < 1 && first[0].squeeze > 0.95, `squeeze ${first[0].squeeze}`);
+  assert.ok(first[0].y + first[0].srcHeight * scale * first[0].squeeze <= colH + 0.001);
+  assert.equal(placed.find((p) => p.page === 1).column, 1);
+  coverage(placed, heights);
+});
+
+test("a tail taller than the minimum still gets its own column at full size", () => {
+  const placed = flowPages([columnPx + 500], scale, sheet);
+  assert.equal(placed.length, 2);
+  assert.ok(placed.every((p) => p.squeeze === 1));
 });
 
 test("a page that fits one column is never split", () => {

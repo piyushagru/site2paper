@@ -23,3 +23,20 @@ test("scroll walk follows a growing page and stops at the cap", async () => {
   }
   assert.deepEqual(ys, [0, 500, 1000, 1500, 2000, 0]);
 });
+
+test("scroll walk waits for web fonts after the walk", async () => {
+  let fontsSettled = false;
+  const doc = {
+    body: { scrollHeight: 500 },
+    documentElement: { scrollHeight: 500 },
+    images: [],
+    fonts: { ready: new Promise((r) => setTimeout(() => { fontsSettled = true; r(); }, 50)) },
+  };
+  Object.assign(globalThis, { document: doc, innerHeight: 1000, scrollTo: () => {} });
+  try {
+    await scrollWalk(2500);
+  } finally {
+    for (const k of ["document", "innerHeight", "scrollTo"]) delete globalThis[k];
+  }
+  assert.equal(fontsSettled, true);
+});

@@ -113,7 +113,10 @@ export async function scrollWalk(maxH) {
   // Lazy feeds grow while scrolling, so the height is re-read every step and only the cap ends the walk.
   for (let y = 0; y < Math.min(docHeight(), maxH); y += innerHeight / 2) { scrollTo(0, y); await sleep(100); }
   const pending = [...document.images].filter((i) => !i.complete);
-  if (pending.length) await Promise.race([Promise.all(pending.map((i) => new Promise((r) => { i.onload = i.onerror = r; }))), sleep(8000)]);
+  const settle = pending.map((i) => new Promise((r) => { i.onload = i.onerror = r; }));
+  // fonts.ready covers only fonts requested by the time it is called, so it runs after the walk pulled lazy content in.
+  if (document.fonts) settle.push(document.fonts.ready);
+  if (settle.length) await Promise.race([Promise.all(settle), sleep(8000)]);
   scrollTo(0, 0);
   await sleep(800);
 }

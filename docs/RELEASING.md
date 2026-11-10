@@ -7,7 +7,7 @@ This page covers how a new `site2paper` version reaches the npm registry. Two pa
 | [Manual publish](#manual-publish) | You, from your laptop, with your npm login and a 2FA code | First release, or any time CI is not set up |
 | [Automated publish](#automated-publish-trusted-publishing) | GitHub Actions, on a version tag, with no npm token | Every release after trusted publishing is set up |
 
-Both paths publish the same tarball. The `files` list in `package.json` decides what ships: `bin`, `src`, `README.md` and `LICENSE`, 11 files and about 14 kB.
+Both paths publish the same tarball. The `files` list in `package.json` decides what ships: `bin`, `src`, `README.md` and `LICENSE`, 14 files and about 18 kB.
 
 ## Before any release
 
@@ -17,10 +17,17 @@ Run the gates locally. CI runs the same ones.
 npm run lint
 npm run check
 npm test
+npm run smoke
 npm publish --dry-run --registry=https://registry.npmjs.org
 ```
 
-The dry run must list 11 files. If it lists more, check the `files` list before you publish.
+`npm run smoke` packs the working tree and runs it the way a new user does: `npx` from an empty
+directory with an empty HOME and npm cache, nothing from this repo on the path. It must print
+`PASS`. Unit tests cannot catch what it catches: 0.1.1 passed every unit test and failed for every
+new user, because `preinstall` referenced `scripts/`, which `files` does not ship.
+
+The dry run must list the `bin`, `src`, `README.md` and `LICENSE` files only. If it lists more,
+check the `files` list before you publish.
 
 ## Manual publish
 
@@ -55,10 +62,12 @@ export NPM_CONFIG_CACHE="$SB/cache"
    npm publish --registry=https://registry.npmjs.org --otp=123456
    ```
 
-4. Confirm the registry has the new version. npm can take a few minutes to show it.
+4. Confirm the registry has the new version and that a stranger can run it. npm can take a few
+   minutes to show it.
 
    ```
    npm view site2paper version --registry=https://registry.npmjs.org
+   npm run smoke -- 0.1.2
    ```
 
 5. Push the commit and tag. The package and the repo must match.
