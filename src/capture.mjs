@@ -20,12 +20,13 @@ export async function linksOn(browser, url, { width }) {
 }
 
 /** Full-page screenshot of one URL as visitors see it, with blank-row map for cut placement. */
-export async function capture(browser, url, { width, keepFooter, hide = [], scale = 1 }) {
+export async function capture(browser, url, { width, keepFooter, hide = [], scale = 1, onStep = () => {} }) {
   const maxH = heightCap(scale);
   const pages = [];
   const open = async (reducedMotion) => {
     const page = await browser.newPage({ viewport: { width, height: 900 }, deviceScaleFactor: scale, reducedMotion });
     pages.push(page);
+    onStep("loading");
     const res = await page.goto(url, { waitUntil: "domcontentloaded", timeout: 60_000 });
     const status = res?.status() ?? 0;
     if (status >= 400) throw new Error(`HTTP ${status}`);
@@ -35,13 +36,14 @@ export async function capture(browser, url, { width, keepFooter, hide = [], scal
       throw new Error("error page rendered");
     }
     await page.addStyleTag({ content: pageCss({ hide, keepFooter }) });
+    onStep("scrolling for lazy content");
     await page.evaluate(scrollWalk, maxH);
     return page;
   };
   try {
     // Stories play only without reduced motion; the static shot wants it, so a page with stories is loaded twice.
     let page = await open("no-preference");
-    const stories = await captureStories(page);
+    const stories = await captureStories(page, onStep);
     if (stories.length) {
       // One WebGL page at a time: two live swiftshader contexts of a story site crashed the browser.
       await page.close().catch(() => {});
@@ -52,6 +54,7 @@ export async function capture(browser, url, { width, keepFooter, hide = [], scal
     const height = await page.evaluate(() => Math.max(document.body.scrollHeight, document.documentElement.scrollHeight));
     const truncated = height > maxH;
     const rows = clipStories(await page.evaluate(storyRows, stories.map(({ id, path }) => ({ id, path }))));
+    onStep(truncated ? `screenshot, cut at ${maxH}px` : "screenshot");
     let png = Buffer.from(await page.screenshot({
       fullPage: !truncated,
       clip: truncated ? { x: 0, y: 0, width, height: maxH } : undefined,
@@ -69,10 +72,11 @@ export async function capture(browser, url, { width, keepFooter, hide = [], scal
 }
 
 /** Viewport screenshots at each scroll stop of every pinned story section, taken before the page is flattened. */
-async function captureStories(page) {
+async function captureStories(page, onStep = () => {}) {
   const stories = await page.evaluate(findStoriesScript());
   const innerHeight = page.viewportSize().height;
-  for (const s of stories) {
+  for (const [n, s] of stories.entries()) {
+    onStep(`scroll story ${n + 1}/${stories.length}`);
     s.frames = [];
     s.scrollPx = Math.max(0, s.height - innerHeight);
     for (const t of STORY_STOPS) {

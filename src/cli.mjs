@@ -6,6 +6,9 @@ import { launchBrowser } from "./browser.mjs";
 import { capture, linksOn, printNative } from "./capture.mjs";
 import { crawl, fromSitemap, orderPages } from "./discover.mjs";
 import { sheetFor } from "./layout.mjs";
+import { bar, createProgress, eta, formatDuration } from "./progress.mjs";
+
+const VERSION = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf-8")).version;
 
 const HELP = `site2paper: print a website the way visitors see it.
 
@@ -25,6 +28,7 @@ const HELP = `site2paper: print a website the way visitors see it.
   --retries <n>       retry rounds for failed pages (default 2)
   --out <path>        output file or directory (default ./site2paper/)
   --quiet
+  --version
 `;
 
 export async function run(argv) {
@@ -44,11 +48,14 @@ export async function run(argv) {
       out: { type: "string", default: "" },
       quiet: { type: "boolean", default: false },
       help: { type: "boolean", short: "h", default: false },
+      version: { type: "boolean", short: "v", default: false },
     },
   });
+  if (o.version) { console.log(VERSION); return 0; }
   if (o.help || !positionals[0]) { console.log(HELP); return o.help ? 0 : 2; }
   const start = positionals[0].startsWith("http") ? positionals[0] : `https://${positionals[0]}`;
   const log = o.quiet ? () => {} : (s) => process.stdout.write(`${s}\n`);
+  const p = createProgress({ quiet: o.quiet });
   const width = Number(o.width);
   const limit = Number(o.limit);
   const hide = o.hide.split(",").map((s) => s.trim()).filter(Boolean);
@@ -59,20 +66,35 @@ export async function run(argv) {
   mkdirSync(outDir, { recursive: true });
   const outFile = (suffix) => (o.out.endsWith(".pdf") && suffix === o.format ? resolve(o.out) : resolve(outDir, `${host}-${date}-${width}px-${suffix}.pdf`));
 
-  const browser = await launchBrowser({ log });
+  p.start("Opening Chrome");
+  const browser = await launchBrowser({ log: (s) => p.log(s) });
+  p.done(`Opened browser ${browser.version()}`);
   const report = { start, width, format: o.format, pages: [], failed: [], truncated: [], outputs: [] };
   try {
     let pages;
     if (o.pages) {
       pages = readFileSync(o.pages, "utf-8").split("\n").map((s) => s.trim()).filter((s) => s && !s.startsWith("#")).map((s) => new URL(s, start).href);
     } else {
+      p.start(`Reading ${new URL(start).origin}/sitemap.xml`);
       pages = await fromSitemap(start, { limit });
-      log(pages.length ? `  sitemap.xml: ${pages.length} page(s)` : "  no sitemap.xml, crawling same-origin links");
-      if (!pages.length) pages = await crawl(start, { limit, openPage: (u) => linksOn(browser, u, { width }) });
+      if (pages.length) p.done(`Found ${pages.length} page(s) in sitemap.xml`);
+      else {
+        p.done("No sitemap.xml, crawling links instead");
+        p.start(`Crawling links  0/${limit} pages`);
+        let why = "";
+        pages = await crawl(start, {
+          limit,
+          openPage: (u) => linksOn(browser, u, { width }),
+          onVisit: (u, n) => { p.label(`Crawling links  ${n.kept}/${limit} pages, ${n.seen} links seen`); p.item(u); },
+          onError: (u, m) => { why ||= `${u} (${m})`; p.fail(`${u}  ${m}`); },
+        });
+        if (!pages.length) { p.stop(); throw new Error(`no pages found: could not open ${why || start}`); }
+        p.done(`Found ${pages.length} page(s) by crawling`);
+      }
       pages = orderPages(pages, start);
     }
     if (!pages.length) throw new Error("no pages found");
-    log(`  ${pages.length} page(s) at ${width}px`);
+    p.log(`  ${pages.length} page(s) at ${width}px`);
 
     const wantBook = ["book", "sheet", "compare"].includes(o.format);
     const wantNative = ["native", "compare"].includes(o.format);
@@ -82,22 +104,32 @@ export async function run(argv) {
     const shoot = async (i) => {
       try {
         if (wantBook) {
-          shots[i] = await capture(browser, pages[i], { width, keepFooter: i === pages.length - 1, hide });
-          if (shots[i].truncated) log(`    cut at ${shots[i].maxHeight}px, rest left out`);
+          const onStep = (step) => p.live && p.item(`${i + 1}/${pages.length} ${pages[i]}  ${step}`);
+          shots[i] = await capture(browser, pages[i], { width, keepFooter: i === pages.length - 1, hide, onStep });
+          if (shots[i].truncated) p.log(`  cut at ${shots[i].maxHeight}px: ${pages[i]}`);
         }
         if (wantNative) natives[i] = await printNative(browser, pages[i], { paper: o.paper, landscape: !o.portrait });
         errors.delete(i);
       } catch (error) {
         errors.set(i, error instanceof Error ? error.message : String(error));
-        log(`    failed: ${pages[i]} (${errors.get(i)})`);
+        p.fail(`${pages[i]}  ${errors.get(i).split("\n")[0]}`);
       }
     };
-    for (let i = 0; i < pages.length; i++) { log(`  ${i + 1}/${pages.length} ${pages[i]}`); await shoot(i); }
+    const n = pages.length;
+    const t0 = Date.now();
+    const status = (done) => {
+      const left = eta(done, n, Date.now() - t0);
+      p.label(`Capturing  ${done}/${n}  ${bar(done, n)}  ${Math.round((done / n) * 100)}%${left ? `  about ${formatDuration(left)} left` : ""}`);
+    };
+    p.start(`Capturing  0/${n}`);
+    for (let i = 0; i < n; i++) { status(i); p.item(`${i + 1}/${n} ${pages[i]}`); await shoot(i); }
+    p.done(`Captured ${n - errors.size}/${n} page(s)`);
     const rounds = Number(o.retries);
     for (let round = 1; round <= rounds && errors.size > 0; round++) {
-      log(`  retry ${round}/${rounds}: ${errors.size} page(s)`);
+      p.start(`Retrying ${errors.size} page(s), round ${round}/${rounds}`);
       await new Promise((r) => setTimeout(r, 3000 * round));
-      for (const i of [...errors.keys()]) await shoot(i);
+      for (const i of [...errors.keys()]) { p.item(pages[i]); await shoot(i); }
+      p.done(`Retry ${round}: ${errors.size} page(s) still failing`);
     }
 
     const kept = pages.map((_, i) => i).filter((i) => !errors.has(i));
@@ -109,7 +141,10 @@ export async function run(argv) {
     report.failed = [...errors].map(([i, reason]) => ({ url: pages[i], reason }));
     report.truncated = kept.filter((i) => shots[i]?.truncated).map((i) => ({ url: pages[i], maxHeight: shots[i].maxHeight }));
 
-    const save = async (suffix, { bytes, sheets }) => {
+    const save = async (suffix, build) => {
+      p.start(`Writing ${suffix} PDF`);
+      const { bytes, sheets } = await build();
+      p.stop();
       const file = outFile(suffix);
       writeFileSync(file, bytes);
       report.outputs.push({ format: suffix, file, sheets, bytes: bytes.length });
@@ -117,9 +152,9 @@ export async function run(argv) {
       return { sheets, bytes: bytes.length };
     };
     const results = {};
-    if (o.format === "book" || o.format === "compare") results.book = await save("book", await buildBook(kept.map((i) => shots[i]), labels, sheet));
-    if (o.format === "sheet") results.sheet = await save("sheet", await buildSheets(kept.map((i) => shots[i]), labels, sheet));
-    if (wantNative) results.native = await save("native", await mergePdfs(kept.map((i) => natives[i])));
+    if (o.format === "book" || o.format === "compare") results.book = await save("book", () => buildBook(kept.map((i) => shots[i]), labels, sheet));
+    if (o.format === "sheet") results.sheet = await save("sheet", () => buildSheets(kept.map((i) => shots[i]), labels, sheet));
+    if (wantNative) results.native = await save("native", () => mergePdfs(kept.map((i) => natives[i])));
     if (o.format === "compare") {
       const row = (k, v) => `  ${k.padEnd(22)} ${String(v.native).padStart(10)} ${String(v.book).padStart(10)}`;
       log("");

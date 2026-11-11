@@ -38,3 +38,13 @@ test("orderPages puts home first, then shallow before deep", () => {
   const out = orderPages(["https://x.test/z/y", "https://x.test/b", "https://x.test/", "https://x.test/a"], "https://x.test/");
   assert.deepEqual(out, ["https://x.test/", "https://x.test/a", "https://x.test/b", "https://x.test/z/y"]);
 });
+
+test("crawl reports each page it opens and each one that fails", async () => {
+  const visits = [];
+  const errors = [];
+  const openPage = async (u) => { if (u.endsWith("/b")) throw new Error("net::ERR_NAME_NOT_RESOLVED\nCall log: ..."); return u.endsWith("/") ? ["/a", "/b"] : []; };
+  const pages = await crawl("https://x.test", { limit: 5, openPage, onVisit: (u, n) => visits.push([u, n.kept]), onError: (u, m) => errors.push([u, m]) });
+  assert.deepEqual(pages, ["https://x.test/", "https://x.test/a"]);
+  assert.deepEqual(visits, [["https://x.test/", 0], ["https://x.test/a", 1], ["https://x.test/b", 2]]);
+  assert.deepEqual(errors, [["https://x.test/b", "net::ERR_NAME_NOT_RESOLVED"]]);
+});

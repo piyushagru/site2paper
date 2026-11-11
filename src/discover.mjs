@@ -47,15 +47,16 @@ export async function fromSitemap(start, { limit }) {
 }
 
 /** Breadth-first same-origin crawl using the browser, so client-rendered nav links count too. */
-export async function crawl(start, { limit, openPage }) {
+export async function crawl(start, { limit, openPage, onVisit = () => {}, onError = () => {} }) {
   const root = normalize(start, start);
   const seen = new Set([root]);
   const queue = [root];
   const out = [];
   while (queue.length && out.length < limit) {
     const url = queue.shift();
+    onVisit(url, { kept: out.length, seen: seen.size });
     let hrefs;
-    try { hrefs = await openPage(url); } catch { continue; }
+    try { hrefs = await openPage(url); } catch (error) { onError(url, error instanceof Error ? error.message.split("\n")[0] : String(error)); continue; }
     out.push(url);
     for (const href of hrefs) {
       const u = normalize(href, url);
