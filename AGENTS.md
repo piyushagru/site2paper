@@ -85,7 +85,7 @@ Keep pure logic (discover, layout) free of Playwright and sharp so it stays unit
 
 - No direct pushes to `main`. Branch `<type>/<short-kebab-summary>`, open a PR.
 - Husky runs lint-staged on commit and commitlint on the message. CI re-checks everything, then
-  does a smoke run against a public site.
+  runs `npm run smoke` against the local fixture site.
 - Registry guard: `npm install` in this repo refuses a non-public registry (the `prepare` hook) so
   the lockfile never gets poisoned. If your shell overrides it, run
   `npm install --registry=https://registry.npmjs.org`. It runs for contributors only; a consumer's

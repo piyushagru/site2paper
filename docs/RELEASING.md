@@ -22,8 +22,11 @@ npm publish --dry-run --registry=https://registry.npmjs.org
 ```
 
 `npm run smoke` packs the working tree and runs it the way a new user does: `npx` from an empty
-directory with an empty HOME and npm cache, nothing from this repo on the path. It must print
-`PASS`. Unit tests cannot catch what it catches: 0.1.1 passed every unit test and failed for every
+directory with an empty HOME and npm cache, nothing from this repo on the path. It then runs the
+old-user path: install the latest published version, upgrade to the packed one, run it. That part
+skips while the packed version equals the published one, so rehearse the real upgrade before the
+bump: in a clean worktree, set `version` in `package.json` to the next number, run `npm run smoke`,
+and expect all 13 checks to pass (done for 0.1.3 on 2026-11-12). It must print `PASS`. Unit tests cannot catch what it catches: 0.1.1 passed every unit test and failed for every
 new user, because `preinstall` referenced `scripts/`, which `files` does not ship.
 
 The dry run must list the `bin`, `src`, `README.md` and `LICENSE` files only. If it lists more,
@@ -63,7 +66,7 @@ export NPM_CONFIG_CACHE="$SB/cache"
    ```
 
 4. Confirm the registry has the new version and that a stranger can run it. npm can take a few
-   minutes to show it.
+   minutes to show it; the smoke waits for that, up to 300 s, and fails at once on any other error.
 
    ```
    npm view site2paper version --registry=https://registry.npmjs.org

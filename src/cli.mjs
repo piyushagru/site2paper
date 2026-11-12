@@ -5,7 +5,7 @@ import { buildBook, buildSheets, mergePdfs } from "./book.mjs";
 import { launchBrowser } from "./browser.mjs";
 import { capture, linksOn, printNative } from "./capture.mjs";
 import { crawl, fromSitemap, orderPages } from "./discover.mjs";
-import { sheetFor } from "./layout.mjs";
+import { PAPER, sheetFor } from "./layout.mjs";
 import { bar, createProgress, eta, formatDuration } from "./progress.mjs";
 
 const VERSION = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf-8")).version;
@@ -21,7 +21,7 @@ const HELP = `site2paper: print a website the way visitors see it.
                       sheet: one page per sheet
                       native: Chrome's Print-to-PDF of each page, merged (the traditional result)
                       compare: book and native, with a side-by-side table
-  --columns <n>       columns per sheet for book (default 2)
+  --columns <n>       columns per sheet for book, 1 to 4 (default 2)
   --paper <size>      a4 (default) or letter
   --portrait          portrait sheets (default landscape)
   --hide <css>        extra selectors to hide, comma separated
@@ -31,36 +31,63 @@ const HELP = `site2paper: print a website the way visitors see it.
   --version
 `;
 
+const FORMATS = ["book", "sheet", "native", "compare"];
+const usage = (message) => Object.assign(new Error(message), { code: "USAGE" });
+
+function parseOptions(argv) {
+  try {
+    return parseArgs({
+      args: argv,
+      allowPositionals: true,
+      options: {
+        pages: { type: "string" },
+        limit: { type: "string", default: "50" },
+        width: { type: "string", default: "1440" },
+        format: { type: "string", default: "book" },
+        columns: { type: "string", default: "2" },
+        paper: { type: "string", default: "a4" },
+        portrait: { type: "boolean", default: false },
+        hide: { type: "string", default: "" },
+        retries: { type: "string", default: "2" },
+        out: { type: "string", default: "" },
+        quiet: { type: "boolean", default: false },
+        help: { type: "boolean", short: "h", default: false },
+        version: { type: "boolean", short: "v", default: false },
+      },
+    });
+  } catch (error) {
+    throw usage(error.message.split(/\.\s/)[0]);
+  }
+}
+
+export function startUrl(arg) {
+  const text = /^[a-z][a-z0-9+.-]*:\/\//i.test(arg) ? arg : `https://${arg}`;
+  let url;
+  try { url = new URL(text); } catch { url = null; }
+  if (!["http:", "https:"].includes(url?.protocol)) throw usage(`${arg}: not an http(s) URL`);
+  return url;
+}
+
 export async function run(argv) {
-  const { values: o, positionals } = parseArgs({
-    args: argv,
-    allowPositionals: true,
-    options: {
-      pages: { type: "string" },
-      limit: { type: "string", default: "50" },
-      width: { type: "string", default: "1440" },
-      format: { type: "string", default: "book" },
-      columns: { type: "string", default: "2" },
-      paper: { type: "string", default: "a4" },
-      portrait: { type: "boolean", default: false },
-      hide: { type: "string", default: "" },
-      retries: { type: "string", default: "2" },
-      out: { type: "string", default: "" },
-      quiet: { type: "boolean", default: false },
-      help: { type: "boolean", short: "h", default: false },
-      version: { type: "boolean", short: "v", default: false },
-    },
-  });
+  const { values: o, positionals } = parseOptions(argv);
   if (o.version) { console.log(VERSION); return 0; }
   if (o.help || !positionals[0]) { console.log(HELP); return o.help ? 0 : 2; }
-  const start = positionals[0].startsWith("http") ? positionals[0] : `https://${positionals[0]}`;
+  const url = startUrl(positionals[0]);
+  const start = url.href;
+  if (!FORMATS.includes(o.format)) throw usage(`--format ${o.format}: use ${FORMATS.join(", ")}`);
+  if (!PAPER[o.paper]) throw usage(`--paper ${o.paper}: use ${Object.keys(PAPER).join(", ")}`);
+  for (const [flag, min, max] of [["width", 1, 32_767], ["columns", 1, 4], ["limit", 1], ["retries", 0]]) {
+    const n = /^\d+$/.test(o[flag]) ? Number(o[flag]) : NaN;
+    if (!(n >= min && n <= (max ?? Number.MAX_SAFE_INTEGER))) throw usage(`--${flag} ${o[flag]}: use a whole number ${max ? `from ${min} to ${max}` : `of at least ${min}`}`);
+  }
+  if (o.out.endsWith(".pdf") && o.format === "compare") throw usage(`--out ${o.out}: compare writes two PDFs, pass a directory`);
   const log = o.quiet ? () => {} : (s) => process.stdout.write(`${s}\n`);
   const p = createProgress({ quiet: o.quiet });
   const width = Number(o.width);
   const limit = Number(o.limit);
   const hide = o.hide.split(",").map((s) => s.trim()).filter(Boolean);
   const sheet = sheetFor({ paper: o.paper, landscape: !o.portrait, columns: Number(o.columns) });
-  const host = new URL(start).host.replace(/[^a-z0-9.-]/gi, "_");
+  const host = url.host.replace(/[^a-z0-9.-]/gi, "_");
   const date = new Date().toISOString().slice(0, 10);
   const outDir = o.out && !o.out.endsWith(".pdf") ? resolve(o.out) : resolve("site2paper");
   mkdirSync(outDir, { recursive: true });

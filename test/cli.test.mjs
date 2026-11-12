@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -21,6 +21,41 @@ test("--help exits 0 and lists --version", () => {
   const r = cli("--help");
   assert.equal(r.status, 0);
   assert.match(r.stdout, /--version/);
+});
+
+test("a bad option value exits 2 naming the flag, before Chrome launches or anything is written", () => {
+  const bin = new URL("../bin/site2paper.mjs", import.meta.url).pathname;
+  const good = "http://127.0.0.1:9/";
+  const cases = [
+    [[good, "--format", "pdf"], /--format pdf/],
+    [[good, "--paper", "a3"], /--paper a3/],
+    [[good, "--columns", "0"], /--columns 0/],
+    [[good, "--width", "abc"], /--width abc/],
+    [[good, "--limit=0"], /--limit 0/],
+    [[good, "--retries=-1"], /--retries -1/],
+    [[good, "--columns", "5"], /--columns 5/],
+    [[good, "--width", "32768"], /--width 32768/],
+    [[good, "--width", "99999999999999999999"], /--width 9{20}/],
+    [[good, "--bogus"], /Unknown option '--bogus'/],
+    [[good, "--out", "x.pdf", "--format", "compare"], /--out x\.pdf/],
+    [["http://exa mple.com"], /not an http\(s\) URL/],
+    [["httpx://foo"], /not an http\(s\) URL/],
+    [["ftp://example.com"], /not an http\(s\) URL/],
+  ];
+  for (const [args, want] of cases) {
+    const cwd = mkdtempSync(join(tmpdir(), "s2p-"));
+    const r = spawnSync(process.execPath, [bin, ...args], { encoding: "utf8", cwd });
+    assert.equal(r.status, 2, args.join(" "));
+    assert.match(r.stderr, want);
+    assert.match(r.stderr, /run site2paper --help/);
+    assert.equal(existsSync(join(cwd, "site2paper")), false, "no output dir before validation passes");
+  }
+});
+
+test("startUrl keeps an explicit scheme instead of nesting it under https://", async () => {
+  const { startUrl } = await import("../src/cli.mjs");
+  assert.equal(startUrl("HTTP://example.com").href, "http://example.com/");
+  assert.equal(startUrl("localhost:3000").href, "https://localhost:3000/");
 });
 
 test("a failure while a spinner is live clears it before the error surfaces", async () => {

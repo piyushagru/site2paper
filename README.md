@@ -103,7 +103,7 @@ npx site2paper https://your.site --pages urls.txt         # only these pages
 2. **Prepare.** CSS and a small script run in the headless browser only, never on your site.
 3. **Capture.** One full-length PNG per page. Pinned scroll stories are captured at 4 scroll stops first and spliced in as a filmstrip.
 4. **Lay out.** Shots are sliced and placed down the columns. The footer is kept on the last page only.
-5. **Report.** Exit code `0` when every page made it, `3` when some were left out.
+5. **Report.** Exit code `0` when every page made it, `3` when some were left out, `2` for a bad flag or value (checked before Chrome opens).
 
 ## Options
 
@@ -111,7 +111,7 @@ npx site2paper https://your.site --pages urls.txt         # only these pages
 |---|---|---|
 | `--width <px>` | `1440` | Viewport width. `768` for tablet, `390` for phone |
 | `--format <name>` | `book` | `book`, `sheet` (one page per sheet), `native` (Chrome Print-to-PDF), `compare` (book and native plus the table) |
-| `--columns <n>` | `2` | Columns per sheet for `book` |
+| `--columns <n>` | `2` | Columns per sheet for `book`, 1 to 4 |
 | `--paper <size>` | `a4` | `a4` or `letter` |
 | `--portrait` | off | Portrait sheets |
 | `--pages <file>` | | Use these URLs instead of discovering them, one per line |

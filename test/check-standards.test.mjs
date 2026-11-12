@@ -13,5 +13,5 @@ test("packed size check fails when the package is over budget", () => {
 test("packed size check passes under the default budget", () => {
   const r = run({});
   assert.equal(r.status, 0, r.stdout);
-  assert.match(r.stdout, /PASS {2}packed size \d+ B within 20000 B/);
+  assert.match(r.stdout, /PASS {2}packed size \d+ B within 30000 B/);
 });

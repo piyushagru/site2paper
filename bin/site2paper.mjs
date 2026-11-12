@@ -5,6 +5,7 @@ run(process.argv.slice(2)).then(
   (code) => process.exit(code),
   (error) => {
     console.error(`site2paper: ${error instanceof Error ? error.message : error}`);
-    process.exit(1);
+    if (error?.code === "USAGE") console.error("run site2paper --help for the options");
+    process.exit(error?.code === "USAGE" ? 2 : 1);
   },
 );
