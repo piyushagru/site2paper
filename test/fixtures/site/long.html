@@ -1,0 +1,12 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Fixture long page</title>
+<style>
+  body { margin: 0; font: 18px/1.5 Georgia, serif; }
+  .card { height: 520px; margin: 0 24px; background: #e7eef5; border-bottom: 1px solid #9ab; }
+  .blank { height: 120px; }
+</style>
+<script>
+  // Twelve cards with blank rows between them: a tall page that must be cut on a blank row.
+  document.write(Array.from({ length: 12 }, (_, i) => `<div class="card"><h2>Card ${i + 1}</h2></div><div class="blank"></div>`).join(""));
+</script>

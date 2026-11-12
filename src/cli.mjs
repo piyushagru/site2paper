@@ -66,11 +66,12 @@ export async function run(argv) {
   mkdirSync(outDir, { recursive: true });
   const outFile = (suffix) => (o.out.endsWith(".pdf") && suffix === o.format ? resolve(o.out) : resolve(outDir, `${host}-${date}-${width}px-${suffix}.pdf`));
 
-  p.start("Opening Chrome");
-  const browser = await launchBrowser({ log: (s) => p.log(s) });
-  p.done(`Opened browser ${browser.version()}`);
   const report = { start, width, format: o.format, pages: [], failed: [], truncated: [], outputs: [] };
+  let browser;
   try {
+    p.start("Opening Chrome");
+    browser = await launchBrowser({ log: (s) => p.log(s) });
+    p.done(`Opened browser ${browser.version()}`);
     let pages;
     if (o.pages) {
       pages = readFileSync(o.pages, "utf-8").split("\n").map((s) => s.trim()).filter((s) => s && !s.startsWith("#")).map((s) => new URL(s, start).href);
@@ -88,7 +89,7 @@ export async function run(argv) {
           onVisit: (u, n) => { p.label(`Crawling links  ${n.kept}/${limit} pages, ${n.seen} links seen`); p.item(u); },
           onError: (u, m) => { why ||= `${u} (${m})`; p.fail(`${u}  ${m}`); },
         });
-        if (!pages.length) { p.stop(); throw new Error(`no pages found: could not open ${why || start}`); }
+        if (!pages.length) throw new Error(`no pages found: could not open ${why || start}`);
         p.done(`Found ${pages.length} page(s) by crawling`);
       }
       pages = orderPages(pages, start);
@@ -169,6 +170,7 @@ export async function run(argv) {
     writeFileSync(resolve(outDir, "report.json"), JSON.stringify(report, null, 2));
     return report.failed.length ? 3 : 0;
   } finally {
-    await browser.close();
+    p.stop(); // a live spinner left on screen would swallow the fatal error line
+    await browser?.close();
   }
 }

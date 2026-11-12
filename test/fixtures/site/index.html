@@ -1,0 +1,30 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Fixture home</title>
+<style>
+  @font-face { font-family: Late; src: url(/font.woff2?delay=600); }
+  body { margin: 0; font: 18px/1.5 Late, Georgia, serif; }
+  header { position: sticky; top: 0; background: #234; color: #fff; padding: 12px 24px; }
+  section { padding: 48px 24px; }
+  .chat { position: fixed; right: 16px; bottom: 16px; width: 64px; height: 64px; border-radius: 50%; background: #2a7; }
+  .swiper-wrapper { display: flex; overflow: hidden; width: 600px; }
+  .swiper-slide { flex: 0 0 600px; height: 160px; color: #fff; font-size: 40px; padding: 24px; }
+  .gap { height: 1400px; }
+  footer { background: #111; color: #eee; padding: 32px 24px; }
+</style>
+<header>Fixture <a href="/story.html" style="color:#fff">story</a> <a href="/long.html" style="color:#fff">long</a> <a href="/slow" style="color:#fff">slow</a> <a href="/missing" style="color:#fff">missing</a></header>
+<div id="onetrust-banner-sdk" style="position:fixed;inset:auto 0 0 0;background:#fc0;padding:24px">Cookie banner: must not print</div>
+<div class="chat" aria-label="chat widget"></div>
+<section><h1>Every case on one site</h1><p>Sticky header, fixed widget, consent banner, carousel, lazy images, a late web font.</p></section>
+<section>
+  <div class="swiper"><div class="swiper-wrapper">
+    <div class="swiper-slide" style="background:#c33">Slide 1</div><div class="swiper-slide" style="background:#3c3">Slide 2</div><div class="swiper-slide" style="background:#33c">Slide 3</div>
+  </div></div>
+</section>
+<div class="gap"></div>
+<section><img loading="lazy" src="/img/native.svg?delay=400" width="600" height="200" alt="native lazy"></section>
+<section><img data-src="/img/observer.svg?delay=300" width="600" height="200" alt="observer lazy" id="io"></section>
+<script>
+  new IntersectionObserver((es, o) => es.forEach((e) => { if (e.isIntersecting) { e.target.src = e.target.dataset.src; o.unobserve(e.target); } })).observe(document.getElementById("io"));
+</script>
+<footer>Fixture footer: prints once</footer>

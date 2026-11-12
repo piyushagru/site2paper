@@ -76,8 +76,10 @@ Keep pure logic (discover, layout) free of Playwright and sharp so it stays unit
 ## Verification
 
 - `npm run lint`, `npm run check`, `npm test` before considering work done.
-- Any change to capture, rules or layout: run against one real site and look at the PDF. Paste a
-  sheet in the PR.
+- Before every commit and every push: `npm run smoke` passes (new user and old user, against the
+  local fixture site), and a second reviewer has read the change.
+- Any change to capture, rules or layout: run against the fixture (`node scripts/fixture-site.mjs`)
+  and look at the PDF. Paste a sheet in the PR. Never test against popular third-party sites.
 
 ## Collaborator workflow (enforced)
 
@@ -88,5 +90,4 @@ Keep pure logic (discover, layout) free of Playwright and sharp so it stays unit
   the lockfile never gets poisoned. If your shell overrides it, run
   `npm install --registry=https://registry.npmjs.org`. It runs for contributors only; a consumer's
   `npx site2paper` must never run anything from `scripts/`.
-- Before every release: `npm run smoke` (packed tarball as a new user) must pass, then
-  `npm run smoke -- <version>` after publish. See `docs/RELEASING.md`.
+- After every publish: `npm run smoke -- <version>`. See `docs/RELEASING.md`.
