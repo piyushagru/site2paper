@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { FOOTER_ONCE_CSS, carouselCss, hideCss, pageCss, pagePrepScript } from "../src/rules.mjs";
+import { FOOTER_ONCE_CSS, GATE_TEXT, carouselCss, hideCss, pageCss, pagePrepScript } from "../src/rules.mjs";
 
 const rules = (css) => css.split("}").map((r) => r.trim().replace(/\s+/g, " ")).filter(Boolean);
 const ruleWith = (css, decl) => rules(css).find((r) => r.includes(decl));
@@ -58,4 +58,9 @@ test("pagePrepScript makes native lazy images and iframes eager", () => {
     delete globalThis.document;
   }
   assert.deepEqual(lazy.map((el) => el.loading), ["eager", "eager"]);
+});
+
+test("GATE_TEXT matches a whole gate label and nothing longer", () => {
+  for (const t of ["TAP TO OPEN", "Click here to enter", "Open Invitation", "Enter", "touch to begin the card"]) assert.ok(GATE_TEXT.test(t), t);
+  for (const t of ["TAP TO OPEN EST. DECEMBER 2026", "Open hours: 9 to 5", "Click to open the menu", "Enter your email"]) assert.ok(!GATE_TEXT.test(t), t);
 });

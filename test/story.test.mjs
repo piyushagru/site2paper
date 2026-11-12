@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { STORY_STOPS, clipStories, filmstripLayout, findStoriesScript, rulerSvg, storyRows } from "../src/story.mjs";
+import { STORY_STOPS, clipStories, filmstripLayout, findStoriesScript, rulerSvg, storyRows, gateRuler } from "../src/story.mjs";
 
 test("filmstrip slots fill the page width with even gaps", () => {
   const l = filmstripLayout({ width: 1440, frameW: 1440, frameH: 900, count: 4 });
@@ -47,4 +47,13 @@ test("clipStories sorts, drops near duplicates and stops print rows at the next 
     { id: "1", top: 2700, height: 3780, end: 5580 },
     { id: "2", top: 5580, height: 1575, end: 7155 },
   ]);
+});
+
+test("gate ruler labels the pre-press frame, then seconds since the press", () => {
+  const ruler = gateRuler("TAP TO OPEN", [0, 1000, 3500]);
+  assert.deepEqual(ruler.ticks, ["before", "1.0 s", "3.5 s"]);
+  assert.ok(ruler.caption.includes("TAP TO OPEN"));
+  const layout = filmstripLayout({ width: 1440, frameW: 1440, frameH: 900, count: 3 });
+  const svg = rulerSvg(layout, { width: 1440, ...ruler });
+  assert.ok(svg.includes(">before<") && svg.includes(">3.5 s<") && !svg.includes("scroll 0 to"));
 });

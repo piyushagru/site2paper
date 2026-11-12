@@ -39,6 +39,9 @@ export function hideCss(extra = []) {
   `;
 }
 
+/** Whole text of a gate button that hides the page until pressed (invites, intros). Both ends anchored so a parent's longer text never matches. */
+export const GATE_TEXT = /^(?:(?:tap|click|touch|press)(?: here)?(?: to)? (?:open|enter|start|begin|view|continue)|open|enter)(?: (?:the )?(?:invitation|invite|card|site))?$/i;
+
 export const FOOTER_ONCE_CSS = "body > footer, main ~ footer, footer[role='contentinfo'] { display: none !important; }";
 
 export function pageCss({ hide = [], keepFooter = false } = {}) {

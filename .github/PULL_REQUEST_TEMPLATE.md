@@ -14,7 +14,7 @@
 
 - [ ] `npm run lint` and `npm run check` pass
 - [ ] `npm test` passes (paste the `tests` / `pass` / `fail` lines)
-- [ ] Ran `npx site2paper <url>` against at least one real site and looked at the PDF
+- [ ] Ran `npm run smoke`, and for capture, rules or layout changes captured the fixture site (`node scripts/fixture-site.mjs`) and looked at the PDF
 
 ```
 (output here)

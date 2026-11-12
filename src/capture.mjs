@@ -1,6 +1,6 @@
 import sharp from "sharp";
-import { pageCss, pagePrepScript } from "./rules.mjs";
-import { STORY_STOPS, clipStories, filmstripLayout, findStoriesScript, rulerSvg, storyRows } from "./story.mjs";
+import { GATE_TEXT, pageCss, pagePrepScript } from "./rules.mjs";
+import { GATE_STOPS, STORY_STOPS, clipStories, filmstripLayout, findStoriesScript, gateRuler, rulerSvg, storyRows } from "./story.mjs";
 
 const ERROR_TEXT = /This page couldn.t load|Application error|Internal Server Error|Unhandled Runtime Error|404 Not Found/;
 // Chromium refuses screenshots over 32767 device pixels on a side (Playwright enforces it off macOS).
@@ -23,6 +23,7 @@ export async function linksOn(browser, url, { width }) {
 export async function capture(browser, url, { width, keepFooter, hide = [], scale = 1, onStep = () => {} }) {
   const maxH = heightCap(scale);
   const pages = [];
+  let gate = null;
   const open = async (reducedMotion) => {
     const page = await browser.newPage({ viewport: { width, height: 900 }, deviceScaleFactor: scale, reducedMotion });
     pages.push(page);
@@ -35,6 +36,9 @@ export async function capture(browser, url, { width, keepFooter, hide = [], scal
     if (await page.evaluate((re) => new RegExp(re).test(document.body?.innerText ?? ""), ERROR_TEXT.source)) {
       throw new Error("error page rendered");
     }
+    // The reveal is filmed once; the reload for the static shot only presses the gate again.
+    const pressed = await openGate(page, { film: !gate, onStep });
+    if (!gate) gate = pressed;
     await page.addStyleTag({ content: pageCss({ hide, keepFooter }) });
     onStep("scrolling for lazy content");
     await page.evaluate(scrollWalk, maxH);
@@ -63,12 +67,31 @@ export async function capture(browser, url, { width, keepFooter, hide = [], scal
     }));
     for (const row of rows.filter((s) => s.end <= Math.min(height, maxH)).reverse()) {
       const { frames, scrollPx } = stories.find((s) => s.id === row.id);
-      png = await spliceStoryboard(png, { ...row, frames, scrollPx }, scale);
+      png = await spliceStoryboard(png, { ...row, frames, ruler: { stops: STORY_STOPS, scrollPx } }, scale);
     }
+    if (gate) png = await spliceStoryboard(png, { top: 0, end: 0, frames: gate.frames, ruler: gateRuler(gate.label) }, scale);
     return { ...(await describe(png)), truncated, maxHeight: maxH };
   } finally {
     for (const p of pages) await p.close().catch(() => {});
   }
+}
+
+/** Presses one "tap to open" style gate so the page behind it is what gets printed. At most one click, never on a missing or hidden gate.
+ *  With film, returns the label and viewport frames of the reveal (before the press, then at GATE_STOPS) for a filmstrip. */
+async function openGate(page, { film = false, onStep = () => {} } = {}) {
+  const gate = page.getByText(GATE_TEXT).first();
+  if (!(await gate.isVisible().catch(() => false))) return null;
+  onStep("opening gate");
+  const label = (await gate.innerText().catch(() => "")).trim();
+  const frames = film ? [Buffer.from(await page.screenshot({ type: "png" }))] : [];
+  await gate.click({ timeout: 2000 }).catch(() => {});
+  // The reveal is an animation with no end event, so frames are taken on a clock from the press.
+  const pressed = Date.now();
+  for (const ms of GATE_STOPS.slice(1)) {
+    await page.waitForTimeout(Math.max(0, pressed + ms - Date.now()));
+    if (film) frames.push(Buffer.from(await page.screenshot({ type: "png" })));
+  }
+  return { label, frames };
 }
 
 /** Viewport screenshots at each scroll stop of every pinned story section, taken before the page is flattened. */
@@ -96,7 +119,7 @@ async function spliceStoryboard(png, story, scale) {
   const layout = filmstripLayout({ width: meta.width, frameW: frame.width, frameH: frame.height, count: story.frames.length });
   const top = Math.min(meta.height, Math.round(story.top * scale)), bottom = Math.min(meta.height, Math.round(story.end * scale));
   const frames = await Promise.all(story.frames.map(async (f, i) => ({ input: await sharp(f).resize(layout.slots[i].w, layout.slots[i].h).png().toBuffer(), left: layout.slots[i].left, top: layout.slots[i].top })));
-  const svg = rulerSvg(layout, { width: meta.width, stops: STORY_STOPS, scrollPx: story.scrollPx });
+  const svg = rulerSvg(layout, { width: meta.width, ...story.ruler });
   const strip = await sharp({ create: { width: meta.width, height: layout.height, channels: 3, background: "#fff" } })
     .composite([...frames, { input: Buffer.from(svg), left: 0, top: 0 }]).png().toBuffer();
   const parts = [];

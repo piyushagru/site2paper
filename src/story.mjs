@@ -2,6 +2,13 @@
 // Printed as a filmstrip of viewport stops with a scroll ruler, in place of the section. Pure, no browser.
 
 export const STORY_STOPS = [0, 1 / 3, 2 / 3, 1];
+/** Milliseconds after a gate press at which its reveal is shot; the first frame is taken before the press. */
+export const GATE_STOPS = [0, 1000, 2000, 3500];
+
+/** Ruler for a gate strip: the pressed label, then seconds since the press. */
+export function gateRuler(label, stops = GATE_STOPS) {
+  return { ticks: stops.map((ms, i) => (i === 0 ? "before" : `${(ms / 1000).toFixed(1)} s`)), caption: `after pressing "${label}"` };
+}
 
 /** Runs in the page: marks the runway of every pinned frame with data-s2p-story and returns its document-px rows. */
 export function findStoriesScript() {
@@ -55,15 +62,15 @@ export function filmstripLayout({ width, frameW, frameH, count, pad = 24, gap = 
   return { slots, height: pad + h + rulerH, barY: pad + h + 18, pad, gap };
 }
 
-export function rulerSvg(layout, { width, stops, scrollPx }) {
+export function rulerSvg(layout, { width, stops = [], scrollPx, ticks = stops.map((t) => `${Math.round(t * 100)}%`), caption = `scroll 0 to ${scrollPx} px` }) {
   const { slots, height, barY } = layout;
-  const ticks = stops.map((t, i) => {
+  const tickMarks = ticks.map((label, i) => {
     const x = slots[i].left;
     return `<line x1="${x}" y1="${barY - 5}" x2="${x}" y2="${barY + 5}" stroke="#777"/>` +
-      `<text x="${x}" y="${barY + 20}" font-size="12" fill="#777">${Math.round(t * 100)}%</text>`;
+      `<text x="${x}" y="${barY + 20}" font-size="12" fill="#777">${label}</text>`;
   }).join("");
   const right = slots[slots.length - 1].left + slots[slots.length - 1].w;
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" font-family="Helvetica, Arial, sans-serif">` +
-    `<line x1="${slots[0].left}" y1="${barY}" x2="${right}" y2="${barY}" stroke="#3a8bd6" stroke-width="2"/>${ticks}` +
-    `<text x="${right}" y="${barY + 20}" font-size="12" fill="#777" text-anchor="end">scroll 0 to ${scrollPx} px</text></svg>`;
+    `<line x1="${slots[0].left}" y1="${barY}" x2="${right}" y2="${barY}" stroke="#3a8bd6" stroke-width="2"/>${tickMarks}` +
+    `<text x="${right}" y="${barY + 20}" font-size="12" fill="#777" text-anchor="end">${caption}</text></svg>`;
 }

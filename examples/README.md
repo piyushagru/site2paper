@@ -73,7 +73,7 @@ npx site2paper <printed url> --format compare --out ./out
 - Pages taller than 32767 px are cut at that height and marked `truncated` in `report.json`.
   Stitching taller pages is roadmap item P1-8.
 - Every page screenshot stays in memory until the PDF is written. Fine for these two sites, a risk
-  for 50 very tall pages. Tracked in issue #1.
+  for 50 tall pages. Tracked in issue #1.
 - `report.json` lists pages, failures and truncation, but not yet which pages are filmstrips.
   Per-page status is issue #2.
 
