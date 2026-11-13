@@ -22,9 +22,14 @@ export function parseSitemap(xml) {
 }
 
 async function fetchText(url, timeoutMs = 15_000) {
-  const res = await fetch(url, { signal: AbortSignal.timeout(timeoutMs), headers: { "user-agent": "site2paper" } });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return res.text();
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(timeoutMs), headers: { "user-agent": "site2paper" } });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.text();
+  } catch (error) {
+    // undici says "fetch failed" and keeps ENOTFOUND or ECONNREFUSED in error.cause
+    throw new Error(error.name === "TimeoutError" ? `timed out after ${timeoutMs / 1000} s` : error.cause?.code ?? error.message, { cause: error });
+  }
 }
 
 /** Every `Sitemap:` value in a robots.txt: field name case-insensitive, `#` starts a comment. */
@@ -35,26 +40,32 @@ export function parseRobots(txt) {
 async function sitemapUrls(origin) {
   const named = await fetchText(`${origin}/robots.txt`).then(parseRobots, () => []);
   const own = named.filter((u) => { try { return new URL(u).origin === origin; } catch { return false; } });
-  return own.length ? [...new Set(own)] : [`${origin}/sitemap.xml`];
+  return [...new Set(own)];
 }
 
-export async function fromSitemap(start, { limit }) {
+export async function fromSitemap(start, { limit, onError = () => {} }) {
   const origin = new URL(start).origin;
-  const locs = [];
-  for (const url of await sitemapUrls(origin)) {
-    let xml;
-    try { xml = await fetchText(url); } catch { continue; }
-    const parsed = parseSitemap(xml);
-    if (!parsed.isIndex) { locs.push(...parsed.locs); continue; }
-    const nested = await Promise.all(parsed.locs.slice(0, 10).map((u) => fetchText(u).then((t) => parseSitemap(t).locs, () => [])));
-    locs.push(...nested.flat());
-  }
   const seen = new Set();
   const out = [];
-  for (const loc of locs) {
-    const u = normalize(loc, origin);
-    if (u && sameOrigin(u, start) && !seen.has(u)) { seen.add(u); out.push(u); }
-    if (out.length >= limit) break;
+  const keep = (locs) => {
+    for (const loc of locs) {
+      const u = normalize(loc, origin);
+      if (u && sameOrigin(u, start) && !seen.has(u)) { seen.add(u); out.push(u); }
+      if (out.length >= limit) return true;
+    }
+    return false;
+  };
+  const read = (url, quiet = false) => fetchText(url).then(parseSitemap, (error) => {
+    if (!(quiet && error.message === "HTTP 404")) onError(url, error.message);
+    return { locs: [], isIndex: false };
+  });
+  const named = await sitemapUrls(origin);
+  // a guessed /sitemap.xml that is missing is the normal "no sitemap" answer, not an error
+  for (const url of named.length ? named : [`${origin}/sitemap.xml`]) {
+    const { locs, isIndex } = await read(url, !named.length);
+    if (!isIndex && keep(locs)) return out;
+    // one child at a time: an index may list thousands of 50 000-URL files, the limit is usually 50
+    for (const child of isIndex ? locs : []) if (keep((await read(child)).locs)) return out;
   }
   return out;
 }

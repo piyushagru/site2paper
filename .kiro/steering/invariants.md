@@ -15,4 +15,6 @@ Full guidance is `AGENTS.md` at the repo root. These lines are the parts that mu
 - A pinned scroll story prints as a filmstrip of scroll stops, never as blank runway. No flag.
 - `body` stays `overflow: visible`; `overflow: auto` on body unpins every sticky frame.
 - No em-dash anywhere. Conventional Commits, about 50 chars, no body unless needed.
+- A commit is at least 2 to 3 pages of diff (about 100 changed lines or more). Code, tests, docs
+  and roadmap lines for one piece of work go in one commit. No standalone docs or tiny commits.
 - Commit only when asked. Never push to `main` directly except by the owner.

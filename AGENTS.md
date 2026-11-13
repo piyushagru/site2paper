@@ -40,9 +40,11 @@ Keep pure logic (discover, layout) free of Playwright and sharp so it stays unit
   about 50 chars, hard cap 72 (commitlint). Types: `feat` `fix` `docs` `style` `refactor` `perf`
   `test` `chore` `ci`.
 - No body unless the change needs real explanation.
-- Do not commit unless asked. One concern per commit, and a commit stays readable in one sitting:
-  about 2 to 3 screens of diff, under 100 changed lines. A larger change is split by concern (code,
-  then its test, then docs) before it is committed (owner, 2026-11-11).
+- Do not commit unless asked. One piece of work per commit, and a commit is at least 2 to 3 pages
+  of diff, about 100 changed lines or more (owner, 2026-11-14; this replaces the 2026-11-11 cap of
+  100 lines). Code, its tests, docs and roadmap lines go in ONE commit. Never a standalone docs,
+  roadmap, test or one-line fix commit; fold it into the related work commit. Split only when two
+  concerns are genuinely distinct and each is itself 2 to 3 pages. Many small commits are bloat.
 - No customer or third-party site name or URL in any doc, example, test or commit message. Example
   images show the output, never a brand mark or the URL label.
 

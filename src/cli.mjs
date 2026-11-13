@@ -111,10 +111,10 @@ export async function run(argv) {
       pages = listed;
     } else {
       p.start(`Reading ${new URL(start).origin}/robots.txt and sitemap`);
-      pages = await fromSitemap(start, { limit });
+      pages = await fromSitemap(start, { limit, onError: (u, m) => p.fail(`${u}  ${m}`) });
       if (pages.length) p.done(`Found ${pages.length} page(s) in the sitemap`);
       else {
-        p.done("No sitemap, crawling links instead");
+        p.done("No sitemap pages, crawling links instead");
         p.start(`Crawling links  0/${limit} pages`);
         let why = "";
         pages = await crawl(start, {
