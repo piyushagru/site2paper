@@ -50,7 +50,7 @@
     "lint": "eslint",
     "lint:lockfile": "node scripts/lint-lockfile.mjs",
     "check": "bash scripts/check-standards.sh",
-    "test": "node --test 'test/**/*.test.mjs'",
+    "test": "node --test test/",
     "prepare": "node scripts/check-registry.mjs && husky",
     "smoke": "bash scripts/smoke-install.sh"
   },

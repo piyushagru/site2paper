@@ -21,7 +21,7 @@ else
 fi
 
 PACK_BUDGET="${PACK_BUDGET:-30000}"
-packed=$(npm pack --dry-run --json 2>/dev/null | node -e 'const [p] = JSON.parse(require("fs").readFileSync(0, "utf8")); console.log(p.size)' 2>/dev/null || echo 0)
+packed=$(npm pack --dry-run --json 2>/dev/null | node -e 'const [p] = JSON.parse(require("fs").readFileSync(0, "utf8")); process.stdout.write(String(p.size))' 2>/dev/null || echo 0)
 if [ "$packed" -gt 0 ] && [ "$packed" -le "$PACK_BUDGET" ]; then
   pass "packed size ${packed} B within ${PACK_BUDGET} B"
 else
