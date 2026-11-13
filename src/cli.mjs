@@ -68,6 +68,12 @@ export function startUrl(arg) {
   return url;
 }
 
+function listedPages(file, start) {
+  let text;
+  try { text = readFileSync(file, "utf-8"); } catch (error) { throw usage(`--pages ${file}: ${error.message}`); }
+  return text.split("\n").map((s) => s.trim()).filter((s) => s && !s.startsWith("#")).map((s) => new URL(s, start).href);
+}
+
 export async function run(argv) {
   const { values: o, positionals } = parseOptions(argv);
   if (o.version) { console.log(VERSION); return 0; }
@@ -81,6 +87,7 @@ export async function run(argv) {
     if (!(n >= min && n <= (max ?? Number.MAX_SAFE_INTEGER))) throw usage(`--${flag} ${o[flag]}: use a whole number ${max ? `from ${min} to ${max}` : `of at least ${min}`}`);
   }
   if (o.out.endsWith(".pdf") && o.format === "compare") throw usage(`--out ${o.out}: compare writes two PDFs, pass a directory`);
+  const listed = o.pages ? listedPages(o.pages, start) : null;
   const log = o.quiet ? () => {} : (s) => process.stdout.write(`${s}\n`);
   const p = createProgress({ quiet: o.quiet });
   const width = Number(o.width);
@@ -100,14 +107,14 @@ export async function run(argv) {
     browser = await launchBrowser({ log: (s) => p.log(s) });
     p.done(`Opened browser ${browser.version()}`);
     let pages;
-    if (o.pages) {
-      pages = readFileSync(o.pages, "utf-8").split("\n").map((s) => s.trim()).filter((s) => s && !s.startsWith("#")).map((s) => new URL(s, start).href);
+    if (listed) {
+      pages = listed;
     } else {
-      p.start(`Reading ${new URL(start).origin}/sitemap.xml`);
+      p.start(`Reading ${new URL(start).origin}/robots.txt and sitemap`);
       pages = await fromSitemap(start, { limit });
-      if (pages.length) p.done(`Found ${pages.length} page(s) in sitemap.xml`);
+      if (pages.length) p.done(`Found ${pages.length} page(s) in the sitemap`);
       else {
-        p.done("No sitemap.xml, crawling links instead");
+        p.done("No sitemap, crawling links instead");
         p.start(`Crawling links  0/${limit} pages`);
         let why = "";
         pages = await crawl(start, {

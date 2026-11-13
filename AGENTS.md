@@ -16,7 +16,7 @@ Any change that adds a required step, flag or config file for the common case is
 |---|---|
 | `bin/site2paper.mjs` | Entry point. Calls `run()`, maps errors to exit codes |
 | `src/cli.mjs` | Flags, discovery, capture loop with retries, output, `compare` table |
-| `src/discover.mjs` | `sitemap.xml`, same-origin crawl, URL normalising and ordering. Pure, no browser |
+| `src/discover.mjs` | `robots.txt` sitemaps, `sitemap.xml`, same-origin crawl, URL normalising and ordering. Pure, no browser |
 | `src/browser.mjs` | Launches installed Chrome or Edge, downloads Chromium only as a last resort |
 | `src/capture.mjs` | One page in, screenshot plus blank-row map out. Also Chrome's native Print-to-PDF |
 | `src/rules.mjs` | CSS and page script: cookie banners, carousels, fixed widgets, footer-once |

@@ -14,7 +14,9 @@ export function startFixture() {
     const url = new URL(req.url, "http://fixture");
     const send = (status, type, body) => setTimeout(() => { res.writeHead(status, { "content-type": type }); res.end(body); }, Number(url.searchParams.get("delay") ?? 0));
     const base = `http://${req.headers.host}`;
-    if (url.pathname === "/sitemap.xml" && sitemap) {
+    // The sitemap lives off the default path on purpose: only robots.txt names it.
+    if (url.pathname === "/robots.txt" && sitemap) return send(200, "text/plain", `User-agent: *\r\nSitemap: ${base}/sitemaps/pages.xml # not /sitemap.xml\r\n`);
+    if (url.pathname === "/sitemaps/pages.xml" && sitemap) {
       return send(200, "application/xml", `<urlset>${["/", "/story.html", "/long.html", "/slow"].map((p) => `<url><loc>${base}${p}</loc></url>`).join("")}</urlset>`);
     }
     if (url.pathname === "/slow") { url.searchParams.set("delay", "3000"); return send(200, "text/html", "<!doctype html><title>Slow</title><h1>Slow page, 3 s to first byte</h1>"); }

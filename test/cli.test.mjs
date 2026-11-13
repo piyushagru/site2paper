@@ -38,6 +38,7 @@ test("a bad option value exits 2 naming the flag, before Chrome launches or anyt
     [[good, "--width", "99999999999999999999"], /--width 9{20}/],
     [[good, "--bogus"], /Unknown option '--bogus'/],
     [[good, "--out", "x.pdf", "--format", "compare"], /--out x\.pdf/],
+    [[good, "--pages", "missing.txt"], /--pages missing\.txt: ENOENT/],
     [["http://exa mple.com"], /not an http\(s\) URL/],
     [["httpx://foo"], /not an http\(s\) URL/],
     [["ftp://example.com"], /not an http\(s\) URL/],

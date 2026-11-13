@@ -27,14 +27,27 @@ async function fetchText(url, timeoutMs = 15_000) {
   return res.text();
 }
 
+/** Every `Sitemap:` value in a robots.txt: field name case-insensitive, `#` starts a comment. */
+export function parseRobots(txt) {
+  return [...txt.matchAll(/^[ \t\uFEFF]*sitemap[ \t]*:[ \t]*([^\s#]+)/gim)].map((m) => m[1]);
+}
+
+async function sitemapUrls(origin) {
+  const named = await fetchText(`${origin}/robots.txt`).then(parseRobots, () => []);
+  const own = named.filter((u) => { try { return new URL(u).origin === origin; } catch { return false; } });
+  return own.length ? [...new Set(own)] : [`${origin}/sitemap.xml`];
+}
+
 export async function fromSitemap(start, { limit }) {
   const origin = new URL(start).origin;
-  let xml;
-  try { xml = await fetchText(`${origin}/sitemap.xml`); } catch { return []; }
-  let { locs, isIndex } = parseSitemap(xml);
-  if (isIndex) {
-    const nested = await Promise.all(locs.slice(0, 10).map((u) => fetchText(u).then((t) => parseSitemap(t).locs, () => [])));
-    locs = nested.flat();
+  const locs = [];
+  for (const url of await sitemapUrls(origin)) {
+    let xml;
+    try { xml = await fetchText(url); } catch { continue; }
+    const parsed = parseSitemap(xml);
+    if (!parsed.isIndex) { locs.push(...parsed.locs); continue; }
+    const nested = await Promise.all(parsed.locs.slice(0, 10).map((u) => fetchText(u).then((t) => parseSitemap(t).locs, () => [])));
+    locs.push(...nested.flat());
   }
   const seen = new Set();
   const out = [];

@@ -67,7 +67,7 @@ npx site2paper https://your.site --format compare
 
 | Capability | Implementation |
 |---|---|
-| **Page discovery** | Parses `sitemap.xml` and sitemap indexes. Falls back to a breadth-first same-origin crawl. URLs are normalized and deduplicated. |
+| **Page discovery** | Reads the sitemaps named in `robots.txt`, else `sitemap.xml`; sitemap indexes followed. Falls back to a breadth-first same-origin crawl. URLs are normalized and deduplicated. |
 | **Browser resolution** | Playwright launches the installed Chrome or Edge via `channel`. Headless Chromium is fetched only if neither is found. |
 | **Carousel normalization** | Swiper, Slick, Embla, Keen, Splide, Flickity, Owl, Bootstrap and `aria-roledescription="carousel"` tracks are reflowed into a CSS grid. Nav controls are dropped. |
 | **Overlay suppression** | Consent management platform (CMP) banners are hidden by selector, never clicked. `position: fixed` and `sticky` nodes are removed. The top header is set static. |
@@ -99,7 +99,7 @@ npx site2paper https://your.site --pages urls.txt         # only these pages
 
 ![site2paper architecture: control plane in cli.mjs drives a pure discovery stage, a Playwright render tier with one isolated page per URL, a pure layout engine that packs shots into columns and cuts on blank rows, and pdf-lib composition, with a deferred retry controller](docs/assets/how-it-works.svg)
 
-1. **Discover.** `sitemap.xml` first, sitemap indexes followed. Else a breadth-first crawl. Home first, shallow paths before deep. Cap: 50.
+1. **Discover.** Sitemaps named in `robots.txt` first, else `sitemap.xml`, indexes followed. Else a breadth-first crawl. Home first, shallow paths before deep. Cap: 50.
 2. **Prepare.** CSS and a small script run in the headless browser only, never on your site.
 3. **Capture.** One full-length PNG per page. Pinned scroll stories are captured at 4 scroll stops first and spliced in as a filmstrip.
 4. **Lay out.** Shots are sliced and placed down the columns. The footer is kept on the last page only.
