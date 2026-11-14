@@ -3,10 +3,31 @@ import sharp from "sharp";
 import { columnScale, flowPages } from "./layout.mjs";
 
 const SNAP_SEARCH_PX = 600;
+const LABEL_PT = 8;
+
+function describe(pdf, { title, subject, creator } = {}) {
+  if (title) pdf.setTitle(title);
+  if (subject) pdf.setSubject(subject);
+  if (creator) pdf.setCreator(creator);
+}
+
+export function fitLabel(text, maxW, font, size = LABEL_PT) {
+  const fits = (s) => font.widthOfTextAtSize(s, size) <= maxW;
+  if (fits(text)) return text;
+  const cut = (head, tail) => {
+    for (let n = head.length - 1; n >= 0; n--) {
+      const s = `${head.slice(0, n)}...${tail}`;
+      if (fits(s)) return s;
+    }
+  };
+  const sep = text.indexOf("   ");
+  return (sep > 0 && cut(text.slice(0, sep), text.slice(sep))) || cut(text, "") || "...";
+}
 
 /** Lays captured pages into multi-column sheets, page after page, with no blank tails. */
-export async function buildBook(shots, labels, sheet, { quality = 82 } = {}) {
+export async function buildBook(shots, labels, sheet, { quality = 82, info } = {}) {
   const pdf = await PDFDocument.create();
+  describe(pdf, info);
   const font = await pdf.embedFont(StandardFonts.Helvetica);
   const width = shots[0].width;
   const scale = columnScale(width, sheet);
@@ -23,7 +44,7 @@ export async function buildBook(shots, labels, sheet, { quality = 82 } = {}) {
     const x = sheet.margin + part.column * (colW + sheet.gap);
     const topY = sheet.height - sheet.margin;
     if (part.labelY !== undefined) {
-      target.drawText(labels[part.page], { x, y: topY - part.labelY - 9, size: 8, font, color: rgb(0.3, 0.3, 0.3) });
+      target.drawText(fitLabel(labels[part.page], colW, font), { x, y: topY - part.labelY - 9, size: LABEL_PT, font, color: rgb(0.3, 0.3, 0.3) });
     }
     const jpg = await sharp(shots[part.page].png)
       .extract({ left: 0, top: part.srcTop, width, height: part.srcHeight })
@@ -37,14 +58,15 @@ export async function buildBook(shots, labels, sheet, { quality = 82 } = {}) {
 }
 
 /** One page per sheet, scaled to fit: the simple format for short sites. */
-export async function buildSheets(shots, labels, sheet, { quality = 82 } = {}) {
+export async function buildSheets(shots, labels, sheet, { quality = 82, info } = {}) {
   const pdf = await PDFDocument.create();
+  describe(pdf, info);
   const font = await pdf.embedFont(StandardFonts.Helvetica);
   const usableW = sheet.width - 2 * sheet.margin;
   const usableH = sheet.height - 2 * sheet.margin - sheet.label;
   for (const [i, shot] of shots.entries()) {
     const page = pdf.addPage([sheet.width, sheet.height]);
-    page.drawText(labels[i], { x: sheet.margin, y: sheet.height - sheet.margin - 9, size: 8, font, color: rgb(0.3, 0.3, 0.3) });
+    page.drawText(fitLabel(labels[i], usableW, font), { x: sheet.margin, y: sheet.height - sheet.margin - 9, size: LABEL_PT, font, color: rgb(0.3, 0.3, 0.3) });
     const scale = Math.min(usableW / shot.width, usableH / shot.height);
     const jpg = await sharp(shot.png).jpeg({ quality }).toBuffer();
     page.drawImage(await pdf.embedJpg(jpg), {

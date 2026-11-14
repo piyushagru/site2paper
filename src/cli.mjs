@@ -176,9 +176,10 @@ export async function run(argv) {
 
     const kept = pages.map((_, i) => i).filter((i) => !errors.has(i));
     if (!kept.length) throw siteError("every page failed");
-    const stamp = new Date().toLocaleString("en-IN", { hour12: false });
+    const stamp = new Date().toLocaleString("en-IN", { hour12: false, timeZoneName: "short" });
     const cut = (i) => (shots[i]?.truncated ? ` (cut at ${shots[i].maxHeight}px)` : "");
     const labels = kept.map((i) => `${i + 1}. ${new URL(pages[i]).pathname}${cut(i)}${i === kept[0] ? `   ${start}   ${width}px   ${stamp}` : ""}`);
+    const info = { title: `${new URL(start).host} ${stamp}`, subject: start, creator: `site2paper ${VERSION}` };
     report.pages = kept.map((i) => pages[i]);
     report.failed = [...errors].map(([i, reason]) => ({ url: pages[i], reason }));
     report.truncated = kept.filter((i) => shots[i]?.truncated).map((i) => ({ url: pages[i], maxHeight: shots[i].maxHeight }));
@@ -194,8 +195,8 @@ export async function run(argv) {
       return { sheets, bytes: bytes.length };
     };
     const results = {};
-    if (o.format === "book" || o.format === "compare") results.book = await save("book", () => buildBook(kept.map((i) => shots[i]), labels, sheet));
-    if (o.format === "sheet") results.sheet = await save("sheet", () => buildSheets(kept.map((i) => shots[i]), labels, sheet));
+    if (o.format === "book" || o.format === "compare") results.book = await save("book", () => buildBook(kept.map((i) => shots[i]), labels, sheet, { info }));
+    if (o.format === "sheet") results.sheet = await save("sheet", () => buildSheets(kept.map((i) => shots[i]), labels, sheet, { info }));
     if (wantNative) results.native = await save("native", () => mergePdfs(kept.map((i) => natives[i])));
     if (o.format === "compare") {
       const row = (k, v) => `  ${k.padEnd(22)} ${String(v.native).padStart(10)} ${String(v.book).padStart(10)}`;

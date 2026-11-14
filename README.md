@@ -76,6 +76,7 @@ npx site2paper https://your.site --format compare
 | **Whitespace-aware pagination** | Each shot gets a per-row variance map. Pages flow through N columns. A page that fits a column is never split. Taller pages are cut on the nearest blank row. |
 | **Fault tolerance** | Failed URLs go to a deferred retry queue, 2 rounds by default. Residual failures are written to `report.json`, and the process exits `3`. |
 | **Output formats** | `book`, `sheet`, `native` (Chrome Print-to-PDF), `compare`. A4 or Letter, portrait or landscape, 1 to 4 columns. JPEG-encoded slices keep the PDF small. |
+| **Proof of what was printed** | The first label carries the start URL, the width and a time stamp with its zone. `book` and `sheet` PDFs also carry the host and stamp as Title, the start URL as Subject and `site2paper <version>` as Creator, so an archived file still says what it is. Long labels are shortened to their column with `...`, path first. |
 | **Viewport emulation** | Any width: `1440` desktop, `768` tablet, `390` phone. |
 
 ## Quick start
