@@ -9,7 +9,9 @@ const COOKIE_BANNERS = [
 
 // Common carousel libraries: the track becomes a wrapping grid and every slide becomes a normal block.
 const CAROUSELS = [
-  { track: '[aria-roledescription="carousel"]', slide: '[aria-roledescription="slide"]', chrome: ":scope > button, :scope > div:not([role])" },
+  // A roleless child that holds the slides is the real track (Next/shadcn pattern); only the slide-free ones are chrome.
+  { track: '[aria-roledescription="carousel"]', slide: '[aria-roledescription="slide"]', chrome: ':scope > button, :scope > div:not([role]):not(:has([aria-roledescription="slide"]))' },
+  { track: '[aria-roledescription="carousel"] > div:not([role]):has(> [aria-roledescription="slide"])', slide: '[aria-roledescription="slide"]', chrome: "" },
   { track: ".swiper-wrapper", slide: ".swiper-slide", chrome: ".swiper-button-prev, .swiper-button-next, .swiper-pagination" },
   { track: ".slick-track", slide: ".slick-slide", chrome: ".slick-arrow, .slick-dots" },
   { track: ".embla__container", slide: ".embla__slide", chrome: ".embla__button, .embla__dots" },
@@ -24,7 +26,9 @@ export function carouselCss() {
   return CAROUSELS.map(({ track, slide, chrome }) => `
     ${track} { display: grid !important; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 8px; transform: none !important; width: auto !important; height: auto !important; aspect-ratio: auto !important; overflow: visible !important; }
     ${track} > ${slide}, ${track} ${slide} { position: relative !important; inset: auto !important; left: auto !important; top: auto !important; transform: none !important; opacity: 1 !important; visibility: visible !important; display: block !important; width: auto !important; min-height: 120px; overflow: hidden; }
-    ${chrome.split(",").map((c) => c.trim().startsWith(":scope") ? `${track} ${c.trim().replace(":scope", "")}` : c.trim()).join(", ")} { display: none !important; }
+    /* A slide whose only child is a fill (absolute inset-0 link holding a fill image) has no height of its own; give the fill a box. */
+    ${track} ${slide} > a:only-child, ${track} ${slide} > div:only-child { position: relative !important; display: block !important; aspect-ratio: 4 / 3; }
+    ${chrome ? `${chrome.split(",").map((c) => c.trim().startsWith(":scope") ? `${track} ${c.trim().replace(":scope", "")}` : c.trim()).join(", ")} { display: none !important; }` : ""}
   `).join("\n");
 }
 

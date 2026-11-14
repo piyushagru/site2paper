@@ -45,6 +45,16 @@ test("carouselCss lays every library's track out as a grid and hides its chrome"
   assert.ok(ruleWith(css, ".swiper-button-prev, .swiper-button-next").includes("display: none !important"));
 });
 
+// rambhapack.in hero: the aria carousel's roleless child div holds the slides and was hidden as chrome, leaving a blank hero.
+test("carouselCss keeps the roleless slide holder of an aria carousel and lays it out as the grid", () => {
+  const css = carouselCss();
+  const chrome = ruleWith(css, '[aria-roledescription="carousel"] > button');
+  assert.ok(chrome.includes(':not(:has([aria-roledescription="slide"]))'));
+  assert.ok(ruleWith(css, '[aria-roledescription="carousel"] > div:not([role]):has(> [aria-roledescription="slide"]) { display: grid !important'));
+  assert.ok(ruleWith(css, '[aria-roledescription="slide"] > a:only-child').includes("aspect-ratio: 4 / 3"));
+  assert.ok(!rules(css).some((r) => r.startsWith("{ display: none")), "no empty chrome selector");
+});
+
 test("pagePrepScript is valid JavaScript", () => {
   assert.doesNotThrow(() => new Function(pagePrepScript()));
 });
