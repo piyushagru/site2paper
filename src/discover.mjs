@@ -1,5 +1,10 @@
 // Finds the pages of a site: sitemap.xml first, then a same-origin crawl of <a href> links.
 
+import { gunzipSync } from "node:zlib";
+
+// sitemaps.org cap on an uncompressed sitemap; also stops a small .gz from inflating to gigabytes
+const MAX_MB = 50;
+
 export function normalize(href, base) {
   let url;
   try { url = new URL(href, base); } catch { return null; }
@@ -25,10 +30,18 @@ async function fetchText(url, timeoutMs = 15_000) {
   try {
     const res = await fetch(url, { signal: AbortSignal.timeout(timeoutMs), headers: { "user-agent": "site2paper" } });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return await res.text();
+    // shortcut: a plain body is read whole before the size check, stream it if a real site ever hits the cap
+    let body = Buffer.from(await res.arrayBuffer());
+    // fetch inflates content-encoding only; a .gz file arrives as gzip bytes
+    if (body[0] === 0x1f && body[1] === 0x8b) body = gunzipSync(body, { maxOutputLength: MAX_MB << 20 });
+    if (body.length > MAX_MB << 20) throw new Error(`over ${MAX_MB} MB`);
+    return body.toString();
   } catch (error) {
     // undici says "fetch failed" and keeps ENOTFOUND or ECONNREFUSED in error.cause
-    throw new Error(error.name === "TimeoutError" ? `timed out after ${timeoutMs / 1000} s` : error.cause?.code ?? error.message, { cause: error });
+    let reason = error.cause?.code ?? error.message;
+    if (error.name === "TimeoutError") reason = `timed out after ${timeoutMs / 1000} s`;
+    if (error.code === "ERR_BUFFER_TOO_LARGE") reason = `over ${MAX_MB} MB`;
+    throw new Error(reason, { cause: error });
   }
 }
 
@@ -44,13 +57,18 @@ async function sitemapUrls(origin) {
 }
 
 export async function fromSitemap(start, { limit, onError = () => {} }) {
-  const origin = new URL(start).origin;
+  const { origin, host, protocol } = new URL(start);
   const seen = new Set();
   const out = [];
   const keep = (locs) => {
     for (const loc of locs) {
-      const u = normalize(loc, origin);
-      if (u && sameOrigin(u, start) && !seen.has(u)) { seen.add(u); out.push(u); }
+      const page = normalize(loc, origin);
+      const url = page && new URL(page);
+      // same host on the other scheme is this site: generators that still write http:// locs are never fixed
+      if (url && url.host === host) {
+        url.protocol = protocol;
+        if (!seen.has(url.href)) { seen.add(url.href); out.push(url.href); }
+      }
       if (out.length >= limit) return true;
     }
     return false;
@@ -59,14 +77,18 @@ export async function fromSitemap(start, { limit, onError = () => {} }) {
     if (!(quiet && error.message === "HTTP 404")) onError(url, error.message);
     return { locs: [], isIndex: false };
   });
+  const root = `${origin}/sitemap.xml`;
   const named = await sitemapUrls(origin);
-  // a guessed /sitemap.xml that is missing is the normal "no sitemap" answer, not an error
-  for (const url of named.length ? named : [`${origin}/sitemap.xml`]) {
-    const { locs, isIndex } = await read(url, !named.length);
-    if (!isIndex && keep(locs)) return out;
+  const walk = async (url, quiet) => {
+    const { locs, isIndex } = await read(url, quiet);
+    if (!isIndex) return keep(locs);
     // one child at a time: an index may list thousands of 50 000-URL files, the limit is usually 50
-    for (const child of isIndex ? locs : []) if (keep((await read(child)).locs)) return out;
-  }
+    for (const child of locs) if (keep((await read(child)).locs)) return true;
+    return false;
+  };
+  for (const url of named) if (await walk(url, false)) return out;
+  // the root is guessed last, only when the named ones gave no page; a missing guess is the normal "no sitemap" answer
+  if (!out.length && !named.includes(root)) await walk(root, true);
   return out;
 }
 

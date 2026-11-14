@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { gzipSync } from "node:zlib";
 import { crawl, fromSitemap, normalize, orderPages, parseRobots, parseSitemap, sameOrigin } from "../src/discover.mjs";
 
 test("normalize strips hash, query, trailing slash and non-page files", () => {
@@ -61,7 +62,7 @@ async function withFetch(routes, fn) {
     fetched.push(url);
     const body = routes[url];
     if (body instanceof Error) throw body;
-    return { ok: body !== undefined, status: body === undefined ? 404 : 200, text: async () => body };
+    return { ok: body !== undefined, status: body === undefined ? 404 : 200, arrayBuffer: async () => Buffer.from(body ?? "") };
   };
   try { return [await fn(), fetched]; } finally { globalThis.fetch = real; }
 }
@@ -125,4 +126,44 @@ test("fromSitemap names each sitemap that fails and why, but a guessed /sitemap.
   const stale = report();
   await withFetch({ "https://x.test/robots.txt": "Sitemap: https://x.test/old.xml\n" }, () => fromSitemap("https://x.test/", { limit: 50, onError: stale.onError }));
   assert.deepEqual(stale.errors, [["https://x.test/old.xml", "HTTP 404"]]);
+});
+
+test("fromSitemap keeps a same-host loc written on the other scheme and drops another port", async () => {
+  const [pages] = await withFetch({
+    "https://x.test/sitemap.xml": "<urlset><url><loc>http://x.test/a</loc></url><url><loc>https://x.test/b</loc></url><url><loc>http://x.test:8443/c</loc></url><url><loc>https://x.test/a</loc></url></urlset>",
+  }, () => fromSitemap("https://x.test/", { limit: 50 }));
+  assert.deepEqual(pages, ["https://x.test/a", "https://x.test/b"]);
+});
+
+test("fromSitemap guesses /sitemap.xml when every named sitemap gave no page, and only then", async () => {
+  const errors = [];
+  const routes = {
+    "https://x.test/robots.txt": "Sitemap: https://x.test/old.xml\nSitemap: https://x.test/idx.xml\nSitemap: https://x.test/more.xml\n",
+    "https://x.test/idx.xml": "<sitemapindex><sitemap><loc>https://x.test/empty.xml</loc></sitemap></sitemapindex>",
+    "https://x.test/empty.xml": "<urlset></urlset>",
+    "https://x.test/more.xml": "<urlset></urlset>",
+    "https://x.test/sitemap.xml": "<urlset><url><loc>https://x.test/root</loc></url></urlset>",
+  };
+  const [pages] = await withFetch(routes, () => fromSitemap("https://x.test/", { limit: 50, onError: (u, m) => errors.push([u, m]) }));
+  assert.deepEqual(pages, ["https://x.test/root"]);
+  assert.deepEqual(errors, [["https://x.test/old.xml", "HTTP 404"]]);
+  const [none, fetched] = await withFetch({ "https://x.test/robots.txt": routes["https://x.test/robots.txt"] }, () => fromSitemap("https://x.test/", { limit: 50, onError: (u, m) => errors.push([u, m]) }));
+  assert.deepEqual(none, []);
+  assert.ok(fetched.includes("https://x.test/sitemap.xml"));
+  assert.deepEqual(errors.slice(1), [["https://x.test/old.xml", "HTTP 404"], ["https://x.test/idx.xml", "HTTP 404"], ["https://x.test/more.xml", "HTTP 404"]]);
+  const [one, few] = await withFetch({ ...routes, "https://x.test/empty.xml": "<urlset><url><loc>https://x.test/one</loc></url></urlset>" }, () => fromSitemap("https://x.test/", { limit: 1 }));
+  assert.deepEqual(one, ["https://x.test/one"]);
+  assert.ok(!few.includes("https://x.test/more.xml") && !few.includes("https://x.test/sitemap.xml"));
+});
+
+test("fromSitemap inflates a gzipped sitemap and refuses a body over 50 MB, zipped or plain", async () => {
+  const errors = [];
+  const [pages] = await withFetch({
+    "https://x.test/robots.txt": "Sitemap: https://x.test/sitemap.xml.gz\nSitemap: https://x.test/bomb.xml.gz\nSitemap: https://x.test/huge.xml\n",
+    "https://x.test/sitemap.xml.gz": gzipSync("<urlset><url><loc>https://x.test/zipped</loc></url></urlset>"),
+    "https://x.test/bomb.xml.gz": gzipSync(Buffer.alloc(51 << 20)),
+    "https://x.test/huge.xml": Buffer.alloc(51 << 20, 0x20),
+  }, () => fromSitemap("https://x.test/", { limit: 50, onError: (u, m) => errors.push([u, m]) }));
+  assert.deepEqual(pages, ["https://x.test/zipped"]);
+  assert.deepEqual(errors, [["https://x.test/bomb.xml.gz", "over 50 MB"], ["https://x.test/huge.xml", "over 50 MB"]]);
 });
