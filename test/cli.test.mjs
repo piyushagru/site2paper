@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -26,6 +26,7 @@ test("--help exits 0 and lists --version", () => {
 test("a bad option value exits 2 naming the flag, before Chrome launches or anything is written", () => {
   const bin = new URL("../bin/site2paper.mjs", import.meta.url).pathname;
   const good = "http://127.0.0.1:9/";
+  const badList = "https://example.com/\nhttps://exa mple.com/team\n";
   const cases = [
     [[good, "--format", "pdf"], /--format pdf/],
     [[good, "--paper", "a3"], /--paper a3/],
@@ -39,13 +40,16 @@ test("a bad option value exits 2 naming the flag, before Chrome launches or anyt
     [[good, "--bogus"], /Unknown option '--bogus'/],
     [[good, "--out", "x.pdf", "--format", "compare"], /--out x\.pdf/],
     [[good, "--pages", "missing.txt"], /--pages missing\.txt: ENOENT/],
+    [[good, "--pages", "pages.txt"], /--pages pages\.txt line 2: https:\/\/exa mple\.com\/team is not a URL/, { pages: badList }],
+    [[good, "--pages", "-"], /--pages - line 2: https:\/\/exa mple\.com\/team is not a URL/, { input: badList }],
     [["http://exa mple.com"], /not an http\(s\) URL/],
     [["httpx://foo"], /not an http\(s\) URL/],
     [["ftp://example.com"], /not an http\(s\) URL/],
   ];
-  for (const [args, want] of cases) {
+  for (const [args, want, { pages, input } = {}] of cases) {
     const cwd = mkdtempSync(join(tmpdir(), "s2p-"));
-    const r = spawnSync(process.execPath, [bin, ...args], { encoding: "utf8", cwd });
+    if (pages) writeFileSync(join(cwd, "pages.txt"), pages);
+    const r = spawnSync(process.execPath, [bin, ...args], { encoding: "utf8", cwd, input });
     assert.equal(r.status, 2, args.join(" "));
     assert.match(r.stderr, want);
     assert.match(r.stderr, /run site2paper --help/);
@@ -57,6 +61,41 @@ test("startUrl keeps an explicit scheme instead of nesting it under https://", a
   const { startUrl } = await import("../src/cli.mjs");
   assert.equal(startUrl("HTTP://example.com").href, "http://example.com/");
   assert.equal(startUrl("localhost:3000").href, "https://localhost:3000/");
+});
+
+test("listedPages keeps the user's order, drops repeats and comments, resolves relative paths", async () => {
+  const { listedPages } = await import("../src/cli.mjs");
+  const file = join(mkdtempSync(join(tmpdir(), "s2p-")), "pages.txt");
+  writeFileSync(file, "  # list\r\nhttps://example.com/b\r\n \r\n/a\nhttps://example.com/b\nhttps://example.com/a#top\nhttps://example.com/a/\n");
+  assert.deepEqual(listedPages(file, "https://example.com/"), [
+    "https://example.com/b",
+    "https://example.com/a",
+    "https://example.com/a#top",
+    "https://example.com/a/",
+  ]);
+});
+
+test("an unexpected error ends with the bug link, a site error does not", () => {
+  const dir = mkdtempSync(join(tmpdir(), "s2p-"));
+  const helper = join(dir, "fake-browser.mjs");
+  writeFileSync(helper, `import { chromium } from ${JSON.stringify(import.meta.resolve("playwright-core"))};
+chromium.launch = async () => ({ version: () => { if (process.env.S2P_FAKE === "boom") throw new Error("boom"); return "fake"; }, close: async () => {} });
+`);
+  const bin = new URL("../bin/site2paper.mjs", import.meta.url).pathname;
+  const go = (fake, args, input) => spawnSync(process.execPath, ["--import", helper, bin, "http://127.0.0.1:9/", "--out", dir, "--retries", "0", ...args], { encoding: "utf8", input, env: { ...process.env, S2P_FAKE: fake } });
+  const bug = go("boom", []);
+  assert.equal(bug.status, 1);
+  assert.match(bug.stderr, /site2paper: boom\nif this looks like a bug, report it at https:\/\/github\.com\//);
+  const site = go("fake", ["--pages", "-"], "http://127.0.0.1:9/from-stdin\n");
+  assert.equal(site.status, 1);
+  assert.match(site.stderr, /127\.0\.0\.1:9\/from-stdin/, "the stdin list reached capture");
+  assert.match(site.stderr, /site2paper: every page failed\n$/);
+  const empty = go("fake", ["--pages", "-"], "# nothing listed\n");
+  assert.equal(empty.status, 1);
+  assert.match(empty.stderr, /site2paper: no pages found\n$/);
+  const crawl = go("fake", []);
+  assert.equal(crawl.status, 1);
+  assert.match(crawl.stderr, /site2paper: no pages found: could not open http:\/\/127\.0\.0\.1:9\/ \(.+\)\n$/);
 });
 
 test("a failure while a spinner is live clears it before the error surfaces", async () => {

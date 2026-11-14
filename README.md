@@ -114,7 +114,7 @@ npx site2paper https://your.site --pages urls.txt         # only these pages
 | `--columns <n>` | `2` | Columns per sheet for `book`, 1 to 4 |
 | `--paper <size>` | `a4` | `a4` or `letter` |
 | `--portrait` | off | Portrait sheets |
-| `--pages <file>` | | Use these URLs instead of discovering them, one per line |
+| `--pages <file>` | | Use these URLs instead of discovering them, one per line, `#` comments, `-` for stdin |
 | `--limit <n>` | `50` | Max pages to discover |
 | `--hide <css>` | | Extra selectors to hide, comma separated |
 | `--retries <n>` | `2` | Retry rounds for failed pages |

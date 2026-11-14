@@ -14,7 +14,7 @@ const HELP = `site2paper: print a website the way visitors see it.
 
   npx site2paper <url> [options]
 
-  --pages <file>      one URL per line instead of discovering them (sitemap.xml, then crawl)
+  --pages <file>      one URL per line (- for stdin) instead of discovering them
   --limit <n>         max pages to discover (default 50)
   --width <px>        viewport width: 1440 desktop (default), 768 tablet, 390 phone
   --format <name>     book (default): pages flow through columns, footer once
@@ -33,6 +33,7 @@ const HELP = `site2paper: print a website the way visitors see it.
 
 const FORMATS = ["book", "sheet", "native", "compare"];
 const usage = (message) => Object.assign(new Error(message), { code: "USAGE" });
+const siteError = (message) => Object.assign(new Error(message), { code: "SITE" });
 
 function parseOptions(argv) {
   try {
@@ -68,10 +69,16 @@ export function startUrl(arg) {
   return url;
 }
 
-function listedPages(file, start) {
+export function listedPages(file, start) {
   let text;
-  try { text = readFileSync(file, "utf-8"); } catch (error) { throw usage(`--pages ${file}: ${error.message}`); }
-  return text.split("\n").map((s) => s.trim()).filter((s) => s && !s.startsWith("#")).map((s) => new URL(s, start).href);
+  try { text = readFileSync(file === "-" ? 0 : file, "utf-8"); } catch (error) { throw usage(`--pages ${file}: ${error.message}`); }
+  const urls = new Set();
+  text.split("\n").forEach((raw, i) => {
+    const line = raw.trim();
+    if (!line || line.startsWith("#")) return;
+    try { urls.add(new URL(line, start).href); } catch { throw usage(`--pages ${file} line ${i + 1}: ${line} is not a URL`); }
+  });
+  return [...urls];
 }
 
 export async function run(argv) {
@@ -123,12 +130,12 @@ export async function run(argv) {
           onVisit: (u, n) => { p.label(`Crawling links  ${n.kept}/${limit} pages, ${n.seen} links seen`); p.item(u); },
           onError: (u, m) => { why ||= `${u} (${m})`; p.fail(`${u}  ${m}`); },
         });
-        if (!pages.length) throw new Error(`no pages found: could not open ${why || start}`);
+        if (!pages.length) throw siteError(`no pages found: could not open ${why || start}`);
         p.done(`Found ${pages.length} page(s) by crawling`);
       }
       pages = orderPages(pages, start);
     }
-    if (!pages.length) throw new Error("no pages found");
+    if (!pages.length) throw siteError("no pages found");
     p.log(`  ${pages.length} page(s) at ${width}px`);
 
     const wantBook = ["book", "sheet", "compare"].includes(o.format);
@@ -168,7 +175,7 @@ export async function run(argv) {
     }
 
     const kept = pages.map((_, i) => i).filter((i) => !errors.has(i));
-    if (!kept.length) throw new Error("every page failed");
+    if (!kept.length) throw siteError("every page failed");
     const stamp = new Date().toLocaleString("en-IN", { hour12: false });
     const cut = (i) => (shots[i]?.truncated ? ` (cut at ${shots[i].maxHeight}px)` : "");
     const labels = kept.map((i) => `${i + 1}. ${new URL(pages[i]).pathname}${cut(i)}${i === kept[0] ? `   ${start}   ${width}px   ${stamp}` : ""}`);
