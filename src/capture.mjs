@@ -65,12 +65,13 @@ export async function capture(browser, url, { width, keepFooter, hide = [], scal
       type: "png",
       animations: "disabled",
     }));
-    for (const row of rows.filter((s) => s.end <= Math.min(height, maxH)).reverse()) {
+    const spliced = rows.filter((s) => s.end <= Math.min(height, maxH));
+    for (const row of [...spliced].reverse()) {
       const { frames, scrollPx } = stories.find((s) => s.id === row.id);
       png = await spliceStoryboard(png, { ...row, frames, ruler: { stops: STORY_STOPS, scrollPx } }, scale);
     }
     if (gate) png = await spliceStoryboard(png, { top: 0, end: 0, frames: gate.frames, ruler: gateRuler(gate.label) }, scale);
-    return { ...(await describe(png)), truncated, maxHeight: maxH };
+    return { ...(await describe(png)), truncated, maxHeight: maxH, filmstrips: spliced.length + (gate ? 1 : 0), finalUrl: page.url() };
   } finally {
     for (const p of pages) await p.close().catch(() => {});
   }

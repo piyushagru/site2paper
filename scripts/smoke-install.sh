@@ -56,6 +56,9 @@ fixture() { # file to write the URL into, then env for the server. Not in $(): p
 fixture "$sb/site.url"; site=$(cat "$sb/site.url")
 fixture "$sb/nomap.url" FIXTURE_SITEMAP=0; nomap=$(cat "$sb/nomap.url")
 printf '%s\n%smissing\n' "$site" "$site" > "$sb/work/pages.txt"
+printf '%sblank.html\n' "$site" > "$sb/work/blank.txt"
+printf '%sblank.html\n%smissing\n' "$site" "$site" > "$sb/work/blank-failed.txt"
+printf '%s\n%sblank.html\n' "$site" "$site" > "$sb/work/blank-last.txt"
 
 fails=0
 # name, expected exit, command... under env -i: a fresh machine sees no inherited npm config, PATH or HOME.
@@ -67,20 +70,29 @@ check() {
   local took="$((SECONDS - t0))s"
   if [ "$got" = "$want_exit" ]; then echo "PASS  $name ($took)"; else echo "FAIL  $name: exit $got, want $want_exit ($took)"; tail -15 "$sb/$name.log"; fails=1; fi
 }
-report() { # name, report.json, pages, failed
-  if node -e 'const r = require(process.argv[1]); process.exit(r.pages.length === +process.argv[2] && r.failed.length === +process.argv[3] ? 0 : 1)' "$2" "$3" "$4" 2>/dev/null
-  then echo "PASS  $1"; else echo "FAIL  $1: want $3 pages, $4 failed in $2"; fails=1; fi
+report() { # name, report.json, pages, failed, skipped
+  if node -e 'const r = require(process.argv[1]); const skipped = r.results.filter((p) => p.status === "skipped").length; process.exit(r.pages.length === +process.argv[2] && r.failed.length === +process.argv[3] && skipped === +process.argv[4] ? 0 : 1)' "$2" "$3" "$4" "$5" 2>/dev/null
+  then echo "PASS  $1"; else echo "FAIL  $1: want $3 pages, $4 failed, $5 skipped in $2"; fails=1; fi
 }
 run=(npx -y --package="$spec" site2paper)
 
 echo "smoke: $spec, fixture $site, old user from ${old:-none}"
 check new-version 0 sh -c "test \"\$(${run[*]} --version)\" = '$want'"
 check new-sitemap 0 "${run[@]}" "$site" --out out-sitemap
-report new-sitemap-report "$sb/work/out-sitemap/report.json" 4 0
+report new-sitemap-report "$sb/work/out-sitemap/report.json" 4 0 1
+check new-sitemap-blank-named 0 grep -q "left out: .*blank.html (blank page)" "$sb/new-sitemap.log"
+check new-all-blank 1 "${run[@]}" "$site" --pages blank.txt --retries 0 --out out-blank
+check new-all-blank-named 0 grep -q "every page is blank" "$sb/new-all-blank.log"
+report new-all-blank-report "$sb/work/out-blank/report.json" 0 0 1
+check new-blank-failed 1 "${run[@]}" "$site" --pages blank-failed.txt --retries 0 --out out-blank-failed
+check new-blank-failed-named 0 grep -q "nothing to print: 1 page(s) failed, 1 blank" "$sb/new-blank-failed.log"
+report new-blank-failed-report "$sb/work/out-blank-failed/report.json" 0 1 1
+check new-blank-last 0 "${run[@]}" "$site" --pages blank-last.txt --retries 0 --out out-blank-last
+check new-blank-last-footer 0 grep -q "Footer kept on $site" "$sb/new-blank-last.log"
 check new-crawl 0 "${run[@]}" "$nomap" --limit 3 --out out-crawl
-report new-crawl-report "$sb/work/out-crawl/report.json" 3 0
+report new-crawl-report "$sb/work/out-crawl/report.json" 3 0 0
 check new-failed-page 3 "${run[@]}" "$site" --pages pages.txt --retries 0 --format compare --out out-failed
-report new-failed-report "$sb/work/out-failed/report.json" 1 1
+report new-failed-report "$sb/work/out-failed/report.json" 1 1 0
 if [ -n "$old" ]; then
   check old-npx-warm 0 npx -y --package="site2paper@$old" site2paper --help
   check old-npx-upgrade 0 sh -c "test \"\$(${run[*]} --version)\" = '$want'"

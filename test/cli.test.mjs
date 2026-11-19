@@ -75,6 +75,20 @@ test("listedPages keeps the user's order, drops repeats and comments, resolves r
   ]);
 });
 
+test("pageStatus names a lost, blank, cut or filmstrip page before calling it ok, and where it ended up", async () => {
+  const { pageStatus } = await import("../src/cli.mjs");
+  const u = "https://x.test/a";
+  const shot = (blank, extra = {}, rows = 100) => ({ blankRows: Uint8Array.from({ length: rows }, (_, i) => (i < blank ? 1 : 0)), height: rows, truncated: false, filmstrips: 0, finalUrl: u, ...extra });
+  assert.deepEqual(pageStatus(u, shot(100), "HTTP 500"), { url: u, status: "failed", reason: "HTTP 500" });
+  assert.deepEqual(pageStatus(u, undefined), { url: u, status: "ok" }, "a native-only run has no screenshot to judge");
+  assert.deepEqual(pageStatus(u, shot(99, { truncated: true, maxHeight: 32767, filmstrips: 1 })), { url: u, height: 100, status: "skipped", reason: "blank page" });
+  assert.deepEqual(pageStatus(u, shot(98, { truncated: true, maxHeight: 32767, filmstrips: 1 })), { url: u, height: 100, status: "cut", maxHeight: 32767 }, "98 percent flat is still a page");
+  assert.deepEqual(pageStatus(u, shot(2376, {}, 2400)), { url: u, height: 2400, status: "ok" }, "a tall page with one heading (24 ink rows, 99 percent flat) is still a page");
+  assert.deepEqual(pageStatus(u, shot(2377, {}, 2400)), { url: u, height: 2400, status: "skipped", reason: "blank page" });
+  assert.deepEqual(pageStatus(u, shot(98, { filmstrips: 2, finalUrl: "https://x.test/login" })), { url: u, finalUrl: "https://x.test/login", height: 100, status: "filmstrip" });
+  assert.deepEqual(pageStatus(u, shot(98)), { url: u, height: 100, status: "ok" }, "finalUrl is written only when the page moved");
+});
+
 test("an unexpected error ends with the bug link, a site error does not", () => {
   const dir = mkdtempSync(join(tmpdir(), "s2p-"));
   const helper = join(dir, "fake-browser.mjs");

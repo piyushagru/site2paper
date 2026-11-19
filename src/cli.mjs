@@ -81,6 +81,21 @@ export function listedPages(file, start) {
   return [...urls];
 }
 
+const BLANK_SHARE = 0.98;
+const BLANK_INK_ROWS = 24;
+// Cut outranks filmstrip: a cut loses content, a filmstrip only rearranges it.
+export function pageStatus(url, shot, reason) {
+  if (reason) return { url, status: "failed", reason };
+  if (!shot) return { url, status: "ok" };
+  const row = { url, ...(shot.finalUrl && shot.finalUrl !== url ? { finalUrl: shot.finalUrl } : {}), height: shot.height };
+  // The share alone would drop a tall page holding one heading; a heading is about 24 rows of ink.
+  const ink = shot.blankRows.reduce((n, b) => n + 1 - b, 0);
+  if (ink < BLANK_INK_ROWS && 1 - ink / shot.blankRows.length > BLANK_SHARE) return { ...row, status: "skipped", reason: "blank page" };
+  if (shot.truncated) return { ...row, status: "cut", maxHeight: shot.maxHeight };
+  if (shot.filmstrips) return { ...row, status: "filmstrip" };
+  return { ...row, status: "ok" };
+}
+
 export async function run(argv) {
   const { values: o, positionals } = parseOptions(argv);
   if (o.version) { console.log(VERSION); return 0; }
@@ -107,7 +122,7 @@ export async function run(argv) {
   mkdirSync(outDir, { recursive: true });
   const outFile = (suffix) => (o.out.endsWith(".pdf") && suffix === o.format ? resolve(o.out) : resolve(outDir, `${host}-${date}-${width}px-${suffix}.pdf`));
 
-  const report = { start, width, format: o.format, pages: [], failed: [], truncated: [], outputs: [] };
+  const report = { start, width, format: o.format, pages: [], failed: [], truncated: [], results: [], outputs: [] };
   let browser;
   try {
     p.start("Opening Chrome");
@@ -175,14 +190,32 @@ export async function run(argv) {
     }
 
     const kept = pages.map((_, i) => i).filter((i) => !errors.has(i));
-    if (!kept.length) throw siteError("every page failed");
+    report.results = pages.map((url, i) => pageStatus(url, shots[i], errors.get(i)));
+    const printed = kept.filter((i) => report.results[i].status !== "skipped");
+    const last = printed.at(-1);
+    if (wantBook && last !== undefined && last !== n - 1) {
+      // The footer was kept on the original last page; if that page was lost, the new last page is shot again with it.
+      p.start(`Capturing the footer on ${pages[last]}`);
+      shots[last] = await capture(browser, pages[last], { width, keepFooter: true, hide }).catch(() => shots[last]);
+      report.results[last] = pageStatus(pages[last], shots[last]);
+      p.done(`Footer kept on ${pages[last]}`);
+    }
+    report.pages = printed.map((i) => pages[i]);
+    report.failed = [...errors].map(([i, reason]) => ({ url: pages[i], reason }));
+    report.truncated = printed.filter((i) => shots[i]?.truncated).map((i) => ({ url: pages[i], maxHeight: shots[i].maxHeight }));
+    const close = () => {
+      for (const r of report.results) if (r.reason) console.error(`  left out: ${r.url} (${r.reason})`);
+      writeFileSync(resolve(outDir, "report.json"), JSON.stringify(report, null, 2));
+    };
+    if (!printed.length) {
+      close();
+      if (!kept.length) throw siteError("every page failed");
+      throw siteError(errors.size ? `nothing to print: ${errors.size} page(s) failed, ${kept.length} blank` : "every page is blank");
+    }
     const stamp = new Date().toLocaleString("en-IN", { hour12: false, timeZoneName: "short" });
     const cut = (i) => (shots[i]?.truncated ? ` (cut at ${shots[i].maxHeight}px)` : "");
-    const labels = kept.map((i) => `${i + 1}. ${new URL(pages[i]).pathname}${cut(i)}${i === kept[0] ? `   ${start}   ${width}px   ${stamp}` : ""}`);
+    const labels = printed.map((i) => `${i + 1}. ${new URL(pages[i]).pathname}${cut(i)}${i === printed[0] ? `   ${start}   ${width}px   ${stamp}` : ""}`);
     const info = { title: `${new URL(start).host} ${stamp}`, subject: start, creator: `site2paper ${VERSION}` };
-    report.pages = kept.map((i) => pages[i]);
-    report.failed = [...errors].map(([i, reason]) => ({ url: pages[i], reason }));
-    report.truncated = kept.filter((i) => shots[i]?.truncated).map((i) => ({ url: pages[i], maxHeight: shots[i].maxHeight }));
 
     const save = async (suffix, build) => {
       p.start(`Writing ${suffix} PDF`);
@@ -195,8 +228,8 @@ export async function run(argv) {
       return { sheets, bytes: bytes.length };
     };
     const results = {};
-    if (o.format === "book" || o.format === "compare") results.book = await save("book", () => buildBook(kept.map((i) => shots[i]), labels, sheet, { info }));
-    if (o.format === "sheet") results.sheet = await save("sheet", () => buildSheets(kept.map((i) => shots[i]), labels, sheet, { info }));
+    if (o.format === "book" || o.format === "compare") results.book = await save("book", () => buildBook(printed.map((i) => shots[i]), labels, sheet, { info }));
+    if (o.format === "sheet") results.sheet = await save("sheet", () => buildSheets(printed.map((i) => shots[i]), labels, sheet, { info }));
     if (wantNative) results.native = await save("native", () => mergePdfs(kept.map((i) => natives[i])));
     if (o.format === "compare") {
       const row = (k, v) => `  ${k.padEnd(22)} ${String(v.native).padStart(10)} ${String(v.book).padStart(10)}`;
@@ -208,8 +241,7 @@ export async function run(argv) {
       log(row("carousel slides", { native: "first", book: "all" }));
       log(row("footer repeats", { native: "every page", book: "once" }));
     }
-    for (const f of report.failed) console.error(`  left out: ${f.url} (${f.reason})`);
-    writeFileSync(resolve(outDir, "report.json"), JSON.stringify(report, null, 2));
+    close();
     return report.failed.length ? 3 : 0;
   } finally {
     p.stop(); // a live spinner left on screen would swallow the fatal error line

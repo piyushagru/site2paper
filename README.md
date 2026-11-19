@@ -56,6 +56,7 @@ More sheets and the numbers behind each run: [`examples/`](examples/).
 | Footer | on every page | once, at the end |
 | Page cut mid-card | often | never |
 | A page that errors | blank or missing | retried, then listed in `report.json` |
+| A page that renders empty | an empty sheet | left out, named in `report.json` |
 
 See it on your own site:
 
@@ -74,7 +75,8 @@ npx site2paper https://your.site --format compare
 | **Scroll-story filmstrips** | A viewport-sized frame pinned (`sticky` or `fixed`) inside a tall section is a scroll-driven story: three.js scenes, GSAP or Lenis scrollytelling, parallax reveals. Ctrl+P and a plain screenshot print its runway as blank backdrop. site2paper scrolls each story to 4 stops, screenshots the viewport at each, and prints the frames in a row with a scroll ruler (0%, 33%, 67%, 100%) in place of the section. WebGL canvases print as drawn. |
 | **Lazy-load hydration** | Incremental viewport scroll fires `loading="lazy"` and `IntersectionObserver` content. Capture waits for `networkidle`. Animations are disabled. |
 | **Whitespace-aware pagination** | Each shot gets a per-row variance map. Pages flow through N columns. A page that fits a column is never split. Taller pages are cut on the nearest blank row. |
-| **Fault tolerance** | Failed URLs go to a deferred retry queue, 2 rounds by default. Residual failures are written to `report.json`, and the process exits `3`. |
+| **Fault tolerance** | Failed URLs go to a deferred retry queue, 2 rounds by default. Residual failures are written to `report.json`, and the process exits `3`. A capture with under 24 rows of ink and over 98 percent flat rows is a blank page: left out of the book, named in `report.json`, exit code unchanged. |
+| **Per-page record** | `report.json` lists every page under `results` with a `status`: `ok`, `cut` (height cap, with `maxHeight`), `filmstrip` (a scroll story or gate was spliced in), `skipped` (`blank page`) or `failed` (with the reason), plus `height` and, when the browser landed elsewhere, `finalUrl`, so a reader can tell an intentional filmstrip from a page that never rendered and a page from the sign-in page it redirected to. |
 | **Output formats** | `book`, `sheet`, `native` (Chrome Print-to-PDF), `compare`. A4 or Letter, portrait or landscape, 1 to 4 columns. JPEG-encoded slices keep the PDF small. |
 | **Proof of what was printed** | The first label carries the start URL, the width and a time stamp with its zone. `book` and `sheet` PDFs also carry the host and stamp as Title, the start URL as Subject and `site2paper <version>` as Creator, so an archived file still says what it is. Long labels are shortened to their column with `...`, path first. |
 | **Viewport emulation** | Any width: `1440` desktop, `768` tablet, `390` phone. |
