@@ -5,12 +5,12 @@ import { gunzipSync } from "node:zlib";
 // sitemaps.org cap on an uncompressed sitemap; also stops a small .gz from inflating to gigabytes
 const MAX_MB = 50;
 
-export function normalize(href, base) {
+export function normalize(href, base, { keepQuery = false } = {}) {
   let url;
   try { url = new URL(href, base); } catch { return null; }
   if (!/^https?:$/.test(url.protocol)) return null;
   url.hash = "";
-  url.search = "";
+  if (!keepQuery) url.search = "";
   if (url.pathname.length > 1 && url.pathname.endsWith("/")) url.pathname = url.pathname.slice(0, -1);
   if (/\.(pdf|zip|png|jpe?g|gif|svg|webp|mp4|xml|json|txt|ico|css|js)$/i.test(url.pathname)) return null;
   return url.href;
@@ -20,8 +20,23 @@ export function sameOrigin(a, b) {
   return new URL(a).origin === new URL(b).origin;
 }
 
-export function parseSitemap(xml) {
-  const locs = [...xml.matchAll(/<loc>\s*([^<\s]+)\s*<\/loc>/g)].map((m) => m[1]);
+const ENTITIES = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'" };
+
+function unescapeXml(text) {
+  return text.replace(/&(?:(amp|lt|gt|quot|apos)|#x([\da-f]+)|#(\d+));/gi, (ref, name, hex, dec) => {
+    if (name) return ENTITIES[name.toLowerCase()];
+    const code = hex ? parseInt(hex, 16) : Number(dec);
+    return code <= 0x10ffff ? String.fromCodePoint(code) : ref;
+  });
+}
+
+/** `<loc>` values of a urlset or index, or the lines of a plain-text sitemap (one URL per line). */
+export function parseSitemap(body) {
+  if (!body.includes("<")) return { locs: body.split("\n").map((l) => l.trim()).filter((l) => /^https?:\/\//i.test(l)), isIndex: false };
+  const xml = body.replace(/<!--[\s\S]*?-->/g, "");
+  const locs = [...xml.matchAll(/<loc>(?:\s*<!\[CDATA\[([\s\S]*?)\]\]>\s*|([^<]*))<\/loc>/g)]
+    .map((m) => (m[1] ?? unescapeXml(m[2])).trim())
+    .filter(Boolean);
   const isIndex = /<sitemapindex/i.test(xml);
   return { locs, isIndex };
 }
@@ -62,7 +77,8 @@ export async function fromSitemap(start, { limit, onError = () => {} }) {
   const out = [];
   const keep = (locs) => {
     for (const loc of locs) {
-      const page = normalize(loc, origin);
+      // a sitemap is the owner's own list: ?page=2 and ?lang=fr are pages, not tracking
+      const page = normalize(loc, origin, { keepQuery: true });
       const url = page && new URL(page);
       // same host on the other scheme is this site: generators that still write http:// locs are never fixed
       if (url && url.host === host) {
@@ -78,12 +94,17 @@ export async function fromSitemap(start, { limit, onError = () => {} }) {
     return { locs: [], isIndex: false };
   });
   const root = `${origin}/sitemap.xml`;
+  const onSite = (url) => URL.canParse(url) && new URL(url).origin === origin;
   const named = await sitemapUrls(origin);
   const walk = async (url, quiet) => {
     const { locs, isIndex } = await read(url, quiet);
     if (!isIndex) return keep(locs);
     // one child at a time: an index may list thousands of 50 000-URL files, the limit is usually 50
-    for (const child of locs) if (keep((await read(child)).locs)) return true;
+    for (const child of locs) {
+      // the protocol allows children on the index's own site only, so another origin is never fetched
+      if (!onSite(child)) { onError(child, `not on ${origin}`); continue; }
+      if (keep((await read(child)).locs)) return true;
+    }
     return false;
   };
   for (const url of named) if (await walk(url, false)) return out;

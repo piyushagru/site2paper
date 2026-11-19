@@ -6,6 +6,7 @@ import { crawl, fromSitemap, normalize, orderPages, parseRobots, parseSitemap, s
 test("normalize strips hash, query, trailing slash and non-page files", () => {
   const base = "https://x.test/a/";
   assert.equal(normalize("/b/?q=1#top", base), "https://x.test/b");
+  assert.equal(normalize("/b/?q=1#top", base, { keepQuery: true }), "https://x.test/b?q=1");
   assert.equal(normalize("c.pdf", base), null);
   assert.equal(normalize("mailto:a@b.c", base), null);
   assert.equal(normalize("/", base), "https://x.test/");
@@ -21,6 +22,34 @@ test("parseSitemap reads urlset and detects an index", () => {
   assert.deepEqual(locs, ["https://x.test/", "https://x.test/p"]);
   assert.equal(isIndex, false);
   assert.equal(parseSitemap("<sitemapindex><sitemap><loc>https://x.test/s1.xml</loc></sitemap></sitemapindex>").isIndex, true);
+});
+
+test("parseSitemap unwraps CDATA, decodes entities and skips commented-out locs, so no listed page is lost or invented", () => {
+  const xml = [
+    "<urlset>",
+    "<url><loc>\n  <![CDATA[ https://x.test/c?a=1&b=2 ]]>\n  </loc></url>",
+    "<url><loc>https://x.test/edge&#x10ffff;</loc></url>",
+    "<url><loc>https://x.test/e?a=1&amp;b=&#x32;&amp;c=&#51;&amp;q=&quot;x&apos;&lt;&gt;</loc></url>",
+    "<!-- <url><loc>https://x.test/retired</loc></url> -->",
+    "<url><loc>https://x.test/bad&#x110000;</loc></url>",
+    "<url><loc>  </loc></url>",
+    "</urlset>",
+  ].join("\n");
+  assert.deepEqual(parseSitemap(xml).locs, ["https://x.test/c?a=1&b=2", "https://x.test/edge\u{10ffff}", "https://x.test/e?a=1&b=2&c=3&q=\"x'<>", "https://x.test/bad&#x110000;"]);
+  assert.equal(parseSitemap("<!-- <sitemapindex> --><urlset></urlset>").isIndex, false);
+});
+
+test("parseSitemap reads a plain-text sitemap one URL per line and ignores anything else", () => {
+  const txt = "\uFEFFhttps://x.test/\r\n  https://x.test/b  \n\nnot a url\nsee https://x.test/z\nftp://x.test/f\nHTTP://x.test/up\n";
+  assert.deepEqual(parseSitemap(txt), { locs: ["https://x.test/", "https://x.test/b", "HTTP://x.test/up"], isIndex: false });
+});
+
+test("fromSitemap keeps locs that differ only by query, and reads a text sitemap robots.txt names", async () => {
+  const [pages] = await withFetch({
+    "https://x.test/robots.txt": "Sitemap: https://x.test/sitemap.txt\n",
+    "https://x.test/sitemap.txt": "https://x.test/list?page=2\nhttps://x.test/list?page=3\nhttps://x.test/list?page=2#top\nhttps://x.test/list\n",
+  }, () => fromSitemap("https://x.test/", { limit: 50 }));
+  assert.deepEqual(pages, ["https://x.test/list?page=2", "https://x.test/list?page=3", "https://x.test/list"]);
 });
 
 test("crawl stays on origin, dedupes and honours the limit", async () => {
@@ -126,6 +155,20 @@ test("fromSitemap names each sitemap that fails and why, but a guessed /sitemap.
   const stale = report();
   await withFetch({ "https://x.test/robots.txt": "Sitemap: https://x.test/old.xml\n" }, () => fromSitemap("https://x.test/", { limit: 50, onError: stale.onError }));
   assert.deepEqual(stale.errors, [["https://x.test/old.xml", "HTTP 404"]]);
+});
+
+test("fromSitemap never fetches an index child off the start origin and names it", async () => {
+  const errors = [];
+  const [pages, fetched] = await withFetch({
+    "https://x.test/sitemap.xml": "<sitemapindex><sitemap><loc>https://cdn.other.test/s.xml</loc></sitemap><sitemap><loc>https://x.test:8443/p.xml</loc></sitemap><sitemap><loc>::</loc></sitemap><sitemap><loc>http://x.test/plain.xml</loc></sitemap><sitemap><loc>https://x.test/ok.xml</loc></sitemap></sitemapindex>",
+    "https://cdn.other.test/s.xml": "<urlset><url><loc>https://x.test/cdn</loc></url></urlset>",
+    "http://x.test/plain.xml": "<urlset><url><loc>https://x.test/plain</loc></url></urlset>",
+    "https://x.test/ok.xml": "<urlset><url><loc>https://x.test/a</loc></url></urlset>",
+  }, () => fromSitemap("https://x.test/", { limit: 50, onError: (u, m) => errors.push([u, m]) }));
+  assert.deepEqual(pages, ["https://x.test/a"]);
+  assert.deepEqual(fetched.filter((u) => !u.startsWith("https://x.test/")), []);
+  const off = ["https://cdn.other.test/s.xml", "https://x.test:8443/p.xml", "::", "http://x.test/plain.xml"];
+  assert.deepEqual(errors, off.map((u) => [u, "not on https://x.test"]));
 });
 
 test("fromSitemap keeps a same-host loc written on the other scheme and drops another port", async () => {

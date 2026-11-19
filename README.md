@@ -68,7 +68,7 @@ npx site2paper https://your.site --format compare
 
 | Capability | Implementation |
 |---|---|
-| **Page discovery** | Reads the sitemaps named in `robots.txt`, else `sitemap.xml`; sitemap indexes followed. Falls back to a breadth-first same-origin crawl. URLs are normalized and deduplicated. |
+| **Page discovery** | Reads the sitemaps named in `robots.txt`, else `sitemap.xml`; XML or plain-text sitemaps, gzipped or not, indexes followed. Falls back to a breadth-first same-origin crawl. URLs are normalized and deduplicated; a sitemap URL keeps its query, a crawled link drops it. |
 | **Browser resolution** | Playwright launches the installed Chrome or Edge via `channel`. Headless Chromium is fetched only if neither is found. |
 | **Carousel normalization** | Swiper, Slick, Embla, Keen, Splide, Flickity, Owl, Bootstrap and `aria-roledescription="carousel"` tracks are reflowed into a CSS grid. Nav controls are dropped. |
 | **Overlay suppression** | Consent management platform (CMP) banners are hidden by selector, never clicked. `position: fixed` and `sticky` nodes are removed. The top header is set static. |

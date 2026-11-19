@@ -214,7 +214,8 @@ export async function run(argv) {
     }
     const stamp = new Date().toLocaleString("en-IN", { hour12: false, timeZoneName: "short" });
     const cut = (i) => (shots[i]?.truncated ? ` (cut at ${shots[i].maxHeight}px)` : "");
-    const labels = printed.map((i) => `${i + 1}. ${new URL(pages[i]).pathname}${cut(i)}${i === printed[0] ? `   ${start}   ${width}px   ${stamp}` : ""}`);
+    const where = (url) => { const { pathname, search } = new URL(url); return pathname + search; };
+    const labels = printed.map((i) => `${i + 1}. ${where(pages[i])}${cut(i)}${i === printed[0] ? `   ${start}   ${width}px   ${stamp}` : ""}`);
     const info = { title: `${new URL(start).host} ${stamp}`, subject: start, creator: `site2paper ${VERSION}` };
 
     const save = async (suffix, build) => {
